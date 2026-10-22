@@ -6,6 +6,16 @@ Live app (Aiven Runtime): https://01a16333-5ca2-7cae-9130-3d31a4ac634f-8080.eur-
 
 Accel AI Innovate Paris, 22 October 2026.
 
+## In 30 seconds
+
+| Judging criterion | Evidence |
+|---|---|
+| Customer problem & product value | Students moving to Paris pick 6 boxes (rent/buy/sell, flat type, area, move-in month or "flexible", budget, handle) and get *when* to search, *where* their budget fits, and *why*, month by month in plain words. |
+| Agent capability | 4 Claude agents: intake → (market analyst ∥ events) → advisor, with tool use, Postgres memory across searches, and every step logged and shown in "Voir le raisonnement" (`agent_runs`). |
+| Data at the core | 1.4 M DVF rows (2021 to H1 2026), 559 k rent indicators, Paris rent caps, 195 events, in Aiven ClickHouse, PostgreSQL and Valkey, deployed on Aiven Runtime. Each number in the advice is checked against the query outputs ("N/N found in the data"). |
+| Evidence it works | Out-of-sample backtest, 299 cases: the month Timing picks beats a random month of the search window in **92.3 %** of cases (+25 % homes changing hands). Same model with vs without Timing's data: **17/20 vs 0/20** answers with every number grounded. For buyers, the month gives no reliable price edge, and we say so. [`benchmarks/RESULTS.md`](benchmarks/RESULTS.md) |
+| Execution & route to users | Live URL above, 9 Playwright E2E tests passing against the live app. First users: student unions (ESILV, Pôle Léonard de Vinci), Crous, Facebook housing groups, TikTok → freemium "the window opens" alerts, guarantor partnerships. |
+
 ## The problem
 
 A student in Clermont-Ferrand who must move to Paris in September does not know when the market offers the most
@@ -15,8 +25,8 @@ with every number taken from the data.
 ## How it works
 
 ```
-question ─► intake agent ─► ┌ market analyst agent ─ ClickHouse (DVF, rents, rent caps) + Valkey cache ┐ ─► advisor agent ─► answer
-            (Postgres memory)└ events agent ────────── Postgres events (195 events, 2021-2027) ──────────┘     + grounding check
+form (6 boxes) ─► intake agent ─► ┌ market analyst agent ─ ClickHouse (DVF, rents, rent caps) + Valkey cache ┐ ─► advisor agent ─► answer
+                    (Postgres memory)└ events agent ────────── Postgres events (195 events, 2021-2027) ──────────┘     + grounding check
 ```
 
 - 4 Claude agents (`claude-sonnet-5-5`, tool use), analyst and events in parallel; every LLM call and tool call is
@@ -53,7 +63,7 @@ pip install -r requirements.txt
 python -m data.seed_events
 python -m data.ingest --reset          # needs data/raw/ (DVF, carte des loyers, encadrement), ~1 min
 python -m uvicorn app.main:app --port 8080
-npx playwright test                    # 7 E2E tests against the local server and real Aiven databases
+npx playwright test                    # 9 E2E tests against the local server and real Aiven databases
 python -m benchmarks.backtest
 python -m benchmarks.agent_vs_llm
 ```
