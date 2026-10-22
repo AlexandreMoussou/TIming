@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rebalance — régulation Vélib</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --bg:#0f1419; --panel:#171e26; --line:#273240; --text:#e6edf3; --muted:#8b98a5; --accent:#4cc38a;
+          --empty:#e5484d; --will-empty:#f5a524; --full:#3e63dd; --will-fill:#8ec5ff; --ok:#4a5563; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; }
+  header .pitch { color:var(--muted); }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
+  .tag { font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); color:var(--muted); }
+  .tag.live { color:var(--accent); border-color:var(--accent); }
+  main { display:grid; grid-template-columns: 1fr 440px; height:calc(100vh - 58px); }
+  #map { height:100%; }
+  aside { overflow:auto; border-left:1px solid var(--line); background:var(--panel); padding:12px 14px 40px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:18px 0 8px; }
+  .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .kpi { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .kpi b { display:block; font-size:20px; }
+  .kpi span { color:var(--muted); font-size:12px; }
+  .brief { background:var(--bg); border-left:3px solid var(--accent); padding:10px; border-radius:4px; white-space:pre-wrap; }
+  .mission { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; }
+  .mission:hover { border-color:var(--accent); }
+  .mission .h { display:flex; justify-content:space-between; font-weight:600; }
+  .mission .r { color:var(--muted); font-size:12px; margin-top:4px; }
+  .step { display:grid; grid-template-columns:22px 1fr; gap:6px; padding:6px 0; border-bottom:1px dashed var(--line); }
+  .step .n { width:20px; height:20px; border-radius:50%; background:var(--line); display:grid; place-items:center; font-size:11px; }
+  .step .name { font-weight:600; text-transform:capitalize; }
+  .step .ms { color:var(--muted); font-size:12px; }
+  button { background:var(--accent); color:#06120c; border:0; border-radius:6px; padding:8px 12px; font-weight:600; cursor:pointer; }
+  button.secondary { background:transparent; color:var(--text); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:wait; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .legend { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--muted); margin-top:6px; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:-1px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  td, th { padding:4px 6px; border-bottom:1px solid var(--line); text-align:right; }
+  td:first-child, th:first-child { text-align:left; }
+  .note { color:var(--muted); font-size:12px; }
+  svg.spark { width:100%; height:60px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; height:auto; } #map { height:55vh; } aside { border-left:0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🚲 Rebalance</h1>
+  <div class="pitch">L’agent qui prévient la station Vélib vide 30 minutes avant, et envoie le bon camion.</div>
+  <div class="tags">
+    <span class="tag live" id="tag-data">Données Vélib live</span>
+    <span class="tag">Flotte de camions simulée</span>
+    <span class="tag" id="tag-llm">—</span>
+  </div>
+</header>
+<main>
+  <div id="map"></div>
+  <aside>
+    <div class="row">
+      <button id="run" data-testid="run-agent">Lancer l’agent</button>
+      <button id="tick" class="secondary" data-testid="tick" hidden>Avancer de 5 min (replay)</button>
+      <span class="note" id="asof" data-testid="asof"></span>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--empty)"></i>vide</span>
+      <span><i class="dot" style="background:var(--will-empty)"></i>va se vider</span>
+      <span><i class="dot" style="background:var(--full)"></i>pleine</span>
+      <span><i class="dot" style="background:var(--will-fill)"></i>va se remplir</span>
+    </div>
+
+    <h2>Situation</h2>
+    <div class="kpis">
+      <div class="kpi"><b id="k-willempty" data-testid="kpi-will-empty">–</b><span>vont se vider (&lt;30 min)</span></div>
+      <div class="kpi"><b id="k-missions" data-testid="kpi-missions">–</b><span>missions camion</span></div>
+      <div class="kpi"><b id="k-avoided">–</b><span>min vides/pleines évitées (est.)</span></div>
+    </div>
+
+    <h2>Brief pour le régulateur</h2>
+    <div class="brief" id="brief" data-testid="brief">Chargement…</div>
+
+    <h2>Missions proposées</h2>
+    <div id="missions" data-testid="missions"></div>
+
+    <h2>Ce que l’agent a fait (run <span id="runid" data-testid="run-id">–</span>)</h2>
+    <div id="steps" data-testid="steps"></div>
+
+    <h2>Ce que l’agent apprend</h2>
+    <div id="learning" data-testid="learning"><span class="note">Les prévisions sont vérifiées 30 min plus tard contre la réalité.</span></div>
+
+    <h2>Benchmark (données réelles rejouées)</h2>
+    <div id="bench" data-testid="benchmark"><span class="note">Pas encore de benchmark.</span></div>
+  </aside>
+</main>
+<script>
+const COLORS = { empty:'#e5484d', will_empty:'#f5a524', full:'#3e63dd', will_fill:'#8ec5ff', ok:'#4a5563' };
+const TRUCK = ['#4cc38a', '#e879f9', '#facc15'];
+const map = L.map('map', { preferCanvas:true }).setView([48.8566, 2.3422], 12.5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution:'© OpenStreetMap, © CARTO', maxZoom:19 }).addTo(map);
+const stationLayer = L.layerGroup().addTo(map), missionLayer = L.layerGroup().addTo(map);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const STEP_LABEL = { observe:'Observer', verify:'Vérifier', learn:'Apprendre', forecast:'Prévoir', plan:'Planifier', brief:'Expliquer', persist:'Mémoriser' };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+function render(state) {
+  $('asof').textContent = 'Relevé : ' + new Date(state.dataTs * 1000).toLocaleTimeString('fr-FR');
+  $('runid').textContent = '#' + state.runId;
+  $('tag-llm').textContent = state.mode === 'llm' ? 'Revue par Claude' : 'Sans LLM (template)';
+  stationLayer.clearLayers(); missionLayer.clearLayers();
+  for (const s of state.stations) {
+    const c = COLORS[s.risk];
+    L.circleMarker([s.lat, s.lon], { radius: s.risk === 'ok' ? 3 : 6, color:c, fillColor:c, fillOpacity:.85, weight:1 })
+      .bindTooltip(`<b>${esc(s.name)}</b><br>${s.bikes} vélos · ${s.docks} places<br>tendance ${s.rate > 0 ? '+' : ''}${s.rate}/min · prévu ${s.predicted} à +${state.horizonMin} min` +
+        (s.minutesToEmpty != null && s.bikes > 0 ? `<br>vide dans ~${s.minutesToEmpty} min` : '') +
+        (s.minutesToFull != null && s.docks > 0 ? `<br>pleine dans ~${s.minutesToFull} min` : ''))
+      .addTo(stationLayer);
+  }
+  const missions = state.trucks.flatMap((t) => t.missions.map((m) => ({ ...m, truck:t.id })));
+  $('k-willempty').textContent = state.stations.filter((s) => s.risk === 'will_empty').length;
+  $('k-missions').textContent = missions.length;
+  $('k-avoided').textContent = missions.reduce((a, m) => a + m.avoidedMinutes, 0);
+  $('brief').textContent = state.brief;
+  $('missions').innerHTML = missions.length ? '' : '<span class="note">Aucune mission nécessaire.</span>';
+  for (const m of missions) {
+    const color = TRUCK[(m.truck - 1) % TRUCK.length];
+    L.polyline([[m.pickup.lat, m.pickup.lon], [m.dropoff.lat, m.dropoff.lon]], { color, weight:4, opacity:.9 }).addTo(missionLayer);
+    L.circleMarker([m.dropoff.lat, m.dropoff.lon], { radius:9, color, weight:3, fill:false }).addTo(missionLayer);
+    const el = document.createElement('div');
+    el.className = 'mission'; el.dataset.testid = 'mission';
+    el.innerHTML = `<div class="h"><span style="color:${color}">Camion ${m.truck} · étape ${m.seq}</span><span>${m.bikes} vélos · ${m.km} km</span></div>
+      <div>${esc(m.pickup.name)} → <b>${esc(m.dropoff.name)}</b></div><div class="r">${esc(m.reason)}</div>`;
+    el.onclick = () => map.fitBounds([[m.pickup.lat, m.pickup.lon], [m.dropoff.lat, m.dropoff.lon]], { padding:[80, 80], maxZoom:15 });
+    $('missions').appendChild(el);
+  }
+  $('steps').innerHTML = state.steps.map((s, i) => `<div class="step" data-testid="step"><span class="n">${i + 1}</span><div>
+    <span class="name">${STEP_LABEL[s.name] || s.name}</span> <span class="ms">${s.ms} ms</span><div>${esc(s.summary || '')}</div>
+    ${s.toolCalls && s.toolCalls.length ? `<div class="ms">outils : ${s.toolCalls.map((t) => esc(t.tool)).join(' → ')}</div>` : ''}</div></div>`).join('');
+}
+
+async function renderLearning() {
+  const runs = (await api('/api/runs')).reverse();
+  const pts = runs.map((r) => { const v = (r.steps || []).find((s) => s.name === 'verify'); return v && v.resolved ? { id:r.id, agent:v.maeAgent, naive:v.maeNaive, n:v.resolved, k:r.stats.k } : null; }).filter(Boolean);
+  if (!pts.length) return;
+  const max = Math.max(...pts.flatMap((p) => [p.agent, p.naive])) * 1.1;
+  const x = (i) => pts.length === 1 ? 50 : (i / (pts.length - 1)) * 100, y = (v) => 58 - (v / max) * 54;
+  const line = (key) => pts.map((p, i) => `${x(i)},${y(p[key])}`).join(' ');
+  const lastP = pts[pts.length - 1];
+  const gain = (1 - lastP.agent / lastP.naive) * 100;
+  $('learning').innerHTML = `<svg class="spark" viewBox="0 0 100 60" preserveAspectRatio="none">
+      <polyline points="${line('naive')}" fill="none" stroke="#8b98a5" stroke-width="1.2" vector-effect="non-scaling-stroke" stroke-dasharray="3 2"/>
+      <polyline points="${line('agent')}" fill="none" stroke="#4cc38a" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+    <div class="note">Erreur moyenne (vélos) des prévisions vérifiées, par run. <span style="color:#4cc38a">Agent</span> vs <span>« rien ne change »</span> (pointillés).</div>
+    <div data-testid="learning-last">Dernier run : erreur ${lastP.agent.toFixed(2)} vs ${lastP.naive.toFixed(2)} vélo (${gain >= 0 ? '−' : '+'}${Math.abs(gain).toFixed(0)} %), ${lastP.n} prévisions vérifiées, k = ${lastP.k.toFixed(2)}.</div>`;
+}
+
+async function renderBench() {
+  const b = await api('/api/benchmark');
+  if (b.available === false) return;
+  const rows = b.methods.map((m) => `<tr><td>${esc(m.label)}</td><td>${m.mae.toFixed(2)}</td><td>${(m.emptyRecall * 100).toFixed(0)} %</td><td>${(m.emptyPrecision * 100).toFixed(0)} %</td><td>${m.medianLeadMin ?? '–'}</td></tr>`).join('');
+  $('bench').innerHTML = `<table><tr><th>Méthode</th><th>Erreur</th><th>Rappel vide</th><th>Précision</th><th>Avance méd.</th></tr>${rows}</table>
+    <div class="note">${esc(b.summary)}</div>`;
+}
+
+async function refresh() {
+  const [state, health] = await Promise.all([api('/api/state'), api('/api/health')]);
+  $('tick').hidden = health.mode !== 'replay';
+  $('tag-data').textContent = health.mode === 'replay' ? 'Données Vélib réelles (replay)' : 'Données Vélib live';
+  render(state);
+  await Promise.all([renderLearning(), renderBench()]);
+}
+
+$('run').onclick = async () => {
+  $('run').disabled = true;
+  try { await api('/api/run', { method:'POST' }); await refresh(); } finally { $('run').disabled = false; }
+};
+$('tick').onclick = async () => {
+  $('tick').disabled = true;
+  try { await api('/api/tick', { method:'POST', headers:{ 'content-type':'application/json' }, body:'{"n":5}' }); await api('/api/run', { method:'POST' }); await refresh(); }
+  finally { $('tick').disabled = false; }
+};
+refresh().catch((e) => { $('brief').textContent = 'Erreur : ' + e.message; });
+setInterval(() => refresh().catch(() => {}), 60_000);
+</script>
+</body>
+</html>

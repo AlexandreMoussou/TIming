@@ -1,0 +1,7 @@
+node_modules
+data
+tests
+test-results
+playwright-report
+.env
+.git

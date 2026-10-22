@@ -1,0 +1,90 @@
+REBALANCE — THE DATA LAYER IN ACTION
+=====================================
+
+One line: Rebalance is an agent for Vélib' dispatchers. It warns that a station
+will run empty 30 minutes before it happens and sends the right truck, learning
+from its own past mistakes.
+
+WHY THE PRODUCT IS NOTHING WITHOUT ITS DATA
+--------------------------------------------
+The agent has no opinion of its own: every decision comes from the database.
+- Freshness : the official Vélib' Métropole GBFS feed (open data, ~1,500
+  stations, ~120 stations change state every minute) is ingested every 60 s.
+  A forecast made on 10-minute-old data is useless to a dispatcher.
+- History   : the forecast of each station is computed from its last 20 minutes
+  of time series stored in Postgres (SQL query over the time window).
+- Memory    : every forecast is stored, then compared 30 minutes later against
+  what really happened. The error is saved and used to correct the next runs.
+  Without this memory, the agent would make the same mistake again forever.
+- Traceability: every agent run (each step, its result, its duration) is
+  persisted. The dispatcher and the jury can see why a mission was proposed.
+
+DATA SOURCE (REAL, NO SIMULATION)
+---------------------------------
+https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_status.json
+https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/station_information.json
+Public data, no key, no personal data (only station states).
+SIMULATED: only the truck fleet (3 depots, 20 bikes per truck, 15 km/h).
+This is stated in the interface.
+
+STORAGE: AIVEN FOR POSTGRESQL (PGlite = same Postgres in WASM for offline tests)
+--------------------------------------------------------------------------------
+Tables (src/schema.sql):
+  stations       reference data (name, lat/lon, capacity) — upsert every boot
+  snapshots      time series: 1 row per station per minute (~1,500 rows/min,
+                 ~90,000 rows/hour). PK (station_id, ts), index on ts.
+  predictions    every forecast: bikes_now, rate_per_min, predicted_bikes,
+                 target_ts. actual_bikes filled in at verification time.
+  station_bias   correction learned per station (what the agent has learned)
+  model_params   global damping factor k learned + its sufficient statistics
+  agent_runs     memory of the runs: steps (jsonb), brief, stats
+  missions       truck missions proposed (pickup, drop-off, bikes, km,
+                 minutes avoided, reason in plain text)
+
+FLOWS
+-----
+1. Ingestion (every minute): fetch GBFS -> INSERT ... SELECT FROM unnest(...)
+   (one bulk insert of ~1,500 rows per snapshot).
+2. Agent run (every 5 min, or the "Lancer l'agent" button):
+   a. OBSERVE  : SELECT max(ts) FROM snapshots
+   b. VERIFY   : predictions whose target_ts has passed, JOIN LATERAL on the
+                 snapshot closest to target_ts (±3 min) -> actual_bikes;
+                 UPDATE predictions. Mean error agent vs "nothing changes".
+   c. LEARN    : least-squares update of k (decayed sufficient statistics in
+                 model_params) + exponential moving average of the error per
+                 station (station_bias, UPSERT).
+   d. FORECAST : SELECT the last 20 min of snapshots for all stations ->
+                 trend (regression) x k + bias -> predicted state at +30 min,
+                 time to empty / time to full.
+   e. PLAN     : greedy pairing of stations about to be full (pickup) with
+                 stations about to be empty (drop-off), maximizing the
+                 empty/full minutes avoided per minute of truck time.
+   f. EXPLAIN  : with ANTHROPIC_API_KEY, Claude reviews the plan via tools
+                 (get_at_risk_stations, get_plan, replan_excluding,
+                 submit_brief) and can exclude anomalous stations and
+                 re-plan; otherwise a template brief is generated.
+   g. MEMORIZE : INSERT agent_runs + ~1,500 predictions + missions.
+3. Interface: GET /api/state (map + missions + trace), /api/runs (learning
+   curve), /api/benchmark (results file).
+
+EXAMPLES OF REAL QUERIES
+------------------------
+-- Verification of past forecasts (memory -> learning)
+WITH due AS (SELECT ... FROM predictions WHERE actual_bikes IS NULL AND target_ts <= $now)
+SELECT d.*, s.bikes AS actual FROM due d
+JOIN LATERAL (SELECT bikes FROM snapshots s WHERE s.station_id = d.station_id
+              AND s.ts BETWEEN d.target_ts - interval '3 minutes' AND d.target_ts + interval '3 minutes'
+              ORDER BY abs(extract(epoch FROM s.ts - d.target_ts)) LIMIT 1) s ON true;
+
+-- Recent window for the forecast
+SELECT station_id, extract(epoch FROM ts), bikes, docks FROM snapshots
+WHERE ts > $now - make_interval(mins => 20) AND ts <= $now ORDER BY station_id, ts;
+
+MEASURED RESULT
+---------------
+See benchmarks/results.md: replay of the real recording, at each instant the
+methods forecast the state at +30 min. Compared to the live map ("nothing
+changes", which cannot see any emptying coming), the agent detects in advance
+a share of the stations that will empty, with a lead time measured in minutes.
+The agent learns only from already-verified forecasts (no leakage from the
+future).

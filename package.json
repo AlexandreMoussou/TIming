@@ -5,11 +5,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node src/server.mjs",
+    "start": "node --env-file-if-exists=.env src/server.mjs",
     "collect": "node scripts/collect.mjs",
-    "benchmark": "node scripts/benchmark.mjs",
+    "benchmark": "node scripts/benchmark.mjs data/snapshots benchmarks",
     "fixture": "node scripts/make-fixture.mjs",
-    "test": "node --test tests/unit/",
+    "test": "node --test \"tests/unit/*.test.mjs\"",
     "test:e2e": "playwright test"
   },
   "engines": {
