@@ -2,6 +2,8 @@
 
 **Pars au bon moment : l'IA qui te dit quand partir en train ou en avion depuis Paris pour payer moins cher, à partir de dix ans de prix, de trafic et de calendriers.**
 
+Application en ligne (Aiven Runtime) : https://01a16375-1a1b-73cb-9a26-fb1059c94d09-8080.eur-1.aiven.app
+
 Accel AI Innovate Paris, 22 octobre 2026.
 
 ## En 30 secondes

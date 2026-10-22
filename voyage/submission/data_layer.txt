@@ -1,0 +1,48 @@
+DÉPART — THE DATA LAYER IN ACTION
+=================================
+Live: https://01a16375-1a1b-73cb-9a26-fb1059c94d09-8080.eur-1.aiven.app
+
+Départ tells you which month to travel by train or plane from Paris to pay less. Every number on screen comes from
+a query on real public data held in Aiven, and is checked against the query outputs before it is shown.
+
+1. SOURCES (public APIs, downloaded 22/10/2026)
+- Eurostat HICP France, monthly price index of air (CP0733) and rail (CP0731) passenger transport, 2015-2025.
+- Eurostat avia_paoc, monthly air passengers carried in France (national / international), up to September 2026.
+- SNCF Open Data: monthly TGV punctuality per route (12,907 rows: trains planned, cancelled, late, delays, 2018-2026),
+  TGV INOUI / OUIGO fares per route (36,349 rows), TGVmax seat availability for the next 30 days (346,810 trains).
+- Official school holidays (data.education.gouv.fr, zones A/B/C) and public holidays (calendrier.api.gouv.fr):
+  878 periods.
+
+2. WHERE IT LIVES
+ClickHouse (Aiven): vg_price_index, vg_air_pax, vg_rail_regularity, vg_rail_fares, vg_tgvmax — analytical scans.
+PostgreSQL (Aiven): vg_users (profile memory), vg_searches, vg_recommendations, vg_feedback, vg_calendar,
+  vg_agent_runs (every LLM call and tool call, with duration).
+Valkey (Aiven): cache of price seasonality, demand curves, destination list (24 h), landing-page numbers.
+Aiven Runtime: the FastAPI app (voyage/Containerfile), same project as the databases.
+
+3. WHAT THE AGENTS DO WITH IT
+intake (form + memory from Postgres) -> analyst || calendar -> advisor; all steps logged in vg_agent_runs.
+- analyst: compute_travel_window — price seasonality per month normalised by each year's average
+  (WITH y AS (SELECT toYear(month) yr, avg(value) a FROM vg_price_index WHERE series='air' ... GROUP BY yr)
+   SELECT toMonth(month), avg(value/a - 1) ...), air passengers or trains planned per month on the route,
+  share of school-holiday days in the month, % late trains; get_route — SNCF fares and TGVmax seats for 30 days.
+  Claude may call get_price_seasonality to compare train and plane.
+- calendar: get_calendar on Postgres, Claude picks the 3-5 periods that push prices up or down.
+- advisor: Claude writes 3-4 plain sentences from the tool outputs only; a grounding check looks up every number
+  in the outputs and the UI shows "N/N found in the data".
+
+4. MEMORY
+A handle stores the last destination and mode; the next search says "Je me souviens : ..." and pre-fills them.
+
+5. FRESHNESS
+TGVmax availability is the SNCF feed of the day (next 30 days); air passengers go to September 2026;
+data/ingest.py reloads everything in under a minute.
+
+6. EVIDENCE (benchmarks/RESULTS.md)
+Leave-one-year-out backtest, 96 cases per mode: when Départ suggests moving the trip by one or two months, the
+fare is 9.4 % lower on average for planes, in 89.8 % of cases (a random month in the same window: +1.0 %). For
+trains: -2.8 %, 58.0 % of cases; we say on screen that the train effect is small.
+
+7. LIMITS AND V2
+National monthly averages, not a given flight's price; how far ahead to book is not in open data. V2: stream
+fare quotes through Aiven for Apache Kafka into ClickHouse to cover booking lead time per route.
