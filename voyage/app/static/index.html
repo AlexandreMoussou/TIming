@@ -136,6 +136,26 @@
   .btn.ghost { background: transparent; color: var(--blue); border: 1px solid var(--blue); }
   footer { background: var(--soft); color: var(--muted); font-size: 12px; padding: 30px 0 50px; line-height: 1.6; }
 
+  /* Face-à-face */
+  .duel { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: stretch; max-width: 880px; margin: 34px auto 0; }
+  @media (max-width: 700px) { .duel { grid-template-columns: 1fr; } .duel .mid { transform: rotate(90deg); } }
+  .side { border-radius: 28px; padding: 26px; text-align: left; background: var(--soft); display: flex; flex-direction: column; gap: 6px; }
+  .side .lab { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .side .mon { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+  .side .big2 { font-size: 64px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+  .side .sm { font-size: 15px; color: #424245; }
+  .side.win { background: linear-gradient(160deg, #0071e3, #5e5ce6); color: #fff; box-shadow: 0 24px 50px #0071e340; }
+  .side.win .lab, .side.win .sm { color: #e8eefc; }
+  .side.lose .big2 { color: #b42318; }
+  .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 120px; }
+  .mid .save { font-size: 34px; font-weight: 800; color: var(--green); letter-spacing: -0.03em; white-space: nowrap; }
+  .mid .arrow { font-size: 40px; color: var(--muted); line-height: 1; }
+  .mid small { color: var(--muted); font-weight: 600; text-align: center; }
+  .chips2 { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
+  .chips2 span { background: var(--soft); border-radius: 980px; padding: 8px 14px; font-size: 15px; font-weight: 600; color: #424245; }
+  .chips2 span.hot { background: #fff1e6; color: #9a3412; } .chips2 span.good { background: #e3f5e9; color: var(--green); }
+  details.adv { max-width: 760px; margin: 20px auto 0; text-align: left; } details.adv .advice { font-size: 18px; }
+
   /* Vrais billets */
   .fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 26px; }
   .fcol { background: #fff; border-radius: 28px; padding: 26px; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
@@ -274,7 +294,9 @@
     <div class="wrap">
       <p class="eyebrow" id="r-eyebrow"></p>
       <h2 id="r-title" data-testid="window"></h2>
-      <p class="advice" id="advice" data-testid="advice"></p>
+      <div class="duel" id="duel" data-testid="duel"></div>
+      <div class="chips2" id="why-chips"></div>
+      <details class="adv"><summary>Lire le conseil détaillé des agents</summary><p class="advice" id="advice" data-testid="advice"></p></details>
       <p class="fine" id="memory" data-testid="memory" style="margin-top:12px"></p>
       <div class="badges"><span class="badge ok" id="grounding" data-testid="grounding"></span><span class="badge" id="mode-b"></span><span class="badge" id="latency"></span></div>
       <div class="acts"><button class="btn ghost" id="up" type="button">👍 Utile</button><button class="btn ghost" id="down" type="button">👎 Pas utile</button></div>
@@ -416,7 +438,14 @@ $("f").onsubmit = async (ev) => {
   }, t));
   const handle = $("handle").value.trim();
   try { localStorage.setItem("depart.handle", handle); } catch (e) {}
-  const body = { mode: state.mode, destination: state.mode === "train" ? $("dest").value : airValue(),
+  let airDest = state.mode === "avion" ? airValue() : null;
+  if (state.mode === "avion" && airDest === "international" && $("air-q").value.trim().length >= 2) {
+    try {
+      const found = await (await fetch("/api/airports?q=" + encodeURIComponent($("air-q").value.trim()))).json();
+      if (found.length) { airDest = found[0].iata; $("air-q").value = `${found[0].city || found[0].name} (${found[0].iata})`; }
+    } catch (e) {}
+  }
+  const body = { mode: state.mode, destination: state.mode === "train" ? $("dest").value : airDest,
     travel_month: state.when === "flex" ? null : state.month, flexible: state.when === "flex", handle: handle || null };
   try {
     const r = await fetch("/api/recommend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -437,6 +466,40 @@ function render(d) {
   const headline = cheapest && !cheapest.is_best ? cheapest.month_label : `${MONTHS[b.month - 1]} ${b.year}`;
   $("r-title").innerHTML = `Pars en <span class="grad">${esc(headline)}</span>.`;
   $("advice").textContent = d.advice;
+  // Face-à-face : ton mois (ou le plus proche) contre le meilleur, en vrais billets quand on les a
+  const real2 = (d.fares || []).filter((f) => f.available && f.lowest_price);
+  const tgt = w.target && w.target.month !== b.month ? w.target : null;
+  let A, B;  // A = mois de référence, B = gagnant
+  if (real2.length === 2) {
+    const [x, y] = real2[0].lowest_price <= real2[1].lowest_price ? [real2[1], real2[0]] : real2;
+    A = { lab: x.is_best ? "Le plus cher des deux" : (tgt ? "Ton mois" : "Bientôt"), mon: x.month_label, big: `${x.lowest_price} €`, sm: `vrai billet du ${new Date(x.date).toLocaleDateString("fr-FR")}` };
+    B = { lab: "Le meilleur choix", mon: y.month_label, big: `${y.lowest_price} €`, sm: `vrai billet du ${new Date(y.date).toLocaleDateString("fr-FR")}` };
+    var save = `−${x.lowest_price - y.lowest_price} €`, saveSub = `soit −${Math.round(100 * (1 - y.lowest_price / x.lowest_price))} % sur le billet`;
+  } else if (tgt) {
+    A = { lab: "Ton mois", mon: tgt.label, big: pct(tgt.price_vs_year_pct), sm: "prix moyen vs le reste de l'année" };
+    B = { lab: "Le meilleur choix", mon: b.label, big: pct(b.price_vs_year_pct), sm: "prix moyen vs le reste de l'année" };
+    var save = `−${Math.round(tgt.price_vs_year_pct - b.price_vs_year_pct)} pts`, saveSub = "d'écart de prix moyen";
+  } else {
+    const worst = w.timeline.reduce((a, c) => (c.price_vs_year_pct > a.price_vs_year_pct ? c : a));
+    A = { lab: "Le pire mois", mon: worst.label, big: pct(worst.price_vs_year_pct), sm: "prix moyen vs le reste de l'année" };
+    B = { lab: "Le meilleur choix", mon: b.label, big: pct(b.price_vs_year_pct), sm: "prix moyen vs le reste de l'année" };
+    var save = `−${Math.round(worst.price_vs_year_pct - b.price_vs_year_pct)} pts`, saveSub = "d'écart de prix moyen";
+  }
+  $("duel").innerHTML = `<div class="side lose"><span class="lab">${A.lab}</span><span class="mon">${esc(A.mon)}</span><span class="big2">${A.big}</span><span class="sm">${A.sm}</span></div>
+    <div class="mid"><span class="arrow">→</span><span class="save">${save}</span><small>${saveSub}</small></div>
+    <div class="side win"><span class="lab">${B.lab}</span><span class="mon">${esc(B.mon)}</span><span class="big2">${B.big}</span><span class="sm">${B.sm}</span></div>`;
+  // Pastilles « pourquoi »
+  const bestT = w.timeline.find((t) => t.status === "best") || b;
+  const chips = [];
+  chips.push([bestT.price_vs_year_pct <= -3 ? "good" : "", `💶 Billets ${pct(bestT.price_vs_year_pct)} vs l'année en ${MONTHS[bestT.month - 1]}`]);
+  if (bestT.holiday_share_pct >= 30) chips.push(["hot", `🏖️ ${bestT.holiday_share_pct} % du mois en vacances`]); else chips.push(["good", "🏖️ Hors vacances scolaires"]);
+  const fc = real2.map((f) => f.forecast).find((f) => f && f.direction === "up");
+  if (fc) chips.push(["hot", `▲ Le prix devrait remonter (signal juste ${fc.measured_precision_pct} % du temps)`]);
+  else if (real2.length) chips.push(["", "● Pas de signal de baisse : on ne promet rien"]);
+  const lvl = real2.find((f) => f.price_level);
+  if (lvl) chips.push([lvl.price_level === "low" ? "good" : lvl.price_level === "high" ? "hot" : "", `Google : prix ${({ low: "bas", typical: "normal", high: "élevé" })[lvl.price_level]} en ce moment`]);
+  if (train && d.route && d.route.fares.length) chips.push(["", `🚄 Dès ${Math.round(Math.min(...d.route.fares.map((x) => x.price_min)))} € en SNCF`]);
+  $("why-chips").innerHTML = chips.map(([c, t]) => `<span class="${c}">${esc(t)}</span>`).join("");
   $("memory").textContent = d.memory ? "Je me souviens : " + d.memory : "";
   const g = d.grounding;
   $("grounding").textContent = `✓ ${g.grounded}/${g.numbers} chiffres retrouvés dans les données${g.derived ? ` (dont ${g.derived} calculés)` : ""}`;

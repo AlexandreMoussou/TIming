@@ -75,6 +75,16 @@ test('Singapour en mars : prévision « devrait remonter » sur un vrai billet',
   await expect(page.getByTestId('real-fares')).toContainText('Devrait remonter');
 });
 
+test('Mumbai tapé sans choisir dans la liste : vrais billets quand même', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('mode-avion').click();
+  await page.getByTestId('air-search').fill('Mumbai');
+  await page.getByTestId('go').click();
+  await expect(page.locator('#r-eyebrow')).toContainText('(BOM)', { timeout: 90000 });
+  await expect(page.getByTestId('duel')).toContainText('€');
+  await expect(page.getByTestId('ticket').first()).toBeVisible();
+});
+
 test("recherche d'aéroport dans le monde entier", async ({ request }) => {
   const r = await (await request.get('/api/airports?q=bangkok')).json();
   expect(r.map((a) => a.iata)).toContain('BKK');
