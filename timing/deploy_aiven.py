@@ -24,7 +24,10 @@ config = {
     "source": {"repository_url": repo, "branch": branch, "build_path": "timing",
                "containerfile_path": "timing/Containerfile"},
 }
-cfg = ["-c", "application=" + json.dumps(config)]
+cfg = ["-c", "application.environment_variables=" + json.dumps(config["environment_variables"]),
+       "-c", "application.ports=" + json.dumps(config["ports"])]
+for k, v in config["source"].items():
+    cfg += ["-c", f"application.source.{k}={v}"]
 os.environ["AIVEN_AUTH_TOKEN"] = env["AIVEN_AUTH_TOKEN"]
 exists = subprocess.run(["avn", "service", "get", SERVICE, "--project", PROJECT], capture_output=True).returncode == 0
 cmd = (["avn", "service", "update", SERVICE, "--project", PROJECT] if exists else
