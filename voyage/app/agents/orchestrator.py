@@ -11,7 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
-from app.agents.tools import MONTHS_FR, TOOL_FUNCS, TOOL_SCHEMAS
+from app.agents.tools import MONTHS_FR, TOOL_FUNCS, TOOL_SCHEMAS, list_air_destinations
 from app.config import ANTHROPIC_API_KEY
 from app.db import postgres as pg
 
@@ -139,8 +139,9 @@ def calendar_agent(run, p, today):
 def advisor_template(p, a):
     w = a["window"]
     b = w["best"]
-    where = "Paris → " + p["destination"].title() if p["mode"] == "train" else \
-        ("un vol international" if p["destination"] == "international" else "un vol en France")
+    where = ("Paris → " + p["destination"].title() if p["mode"] == "train" else
+             f"un vol Paris → {w['destination_name']}" if w.get("destination_name") else
+             "un vol international" if p["destination"] == "international" else "un vol en France")
     s = f"Pour {where}, le meilleur moment pour partir est {b['label']} : {b['reason'].lower().replace(' · ', ', ')}"
     if w.get("target") and w["target"] is not b:
         s += (f". En {w['target']['label']}, les billets sont à {w['target']['price_vs_year_pct']:+.0f} % : "
@@ -223,8 +224,11 @@ def recommend(params, handle=None, today=None):
     if params.get("flexible"):
         p["travel_month"] = None
     p.pop("flexible", None)
-    if p["mode"] == "avion" and p["destination"] not in ("national", "international"):
+    air_codes = {d["code"] for d in list_air_destinations()}
+    if p["mode"] == "avion" and p["destination"] not in ("national", "international", *air_codes):
         p["destination"] = "national"
+    if p["mode"] == "train" and p["destination"] in (*air_codes, "national", "international"):
+        p["destination"] = "LYON PART DIEU"
     memory = f"{len(past)} recherche(s) précédente(s), dernière : « {past[0]['label']} »" if past else None
     run.log("intake", "form", "validate", {"fields": params, "memory": profile}, p)
     if memory:

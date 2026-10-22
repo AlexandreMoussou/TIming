@@ -34,8 +34,23 @@ def get_price_seasonality(mode):
                        for r in rows]}
 
 
+def is_air_route(destination):
+    return bool(destination) and len(destination) == 4 and destination.isupper()
+
+
 def get_demand(mode, destination=None):
-    """Affluence par mois vs la moyenne de l'année : passagers aériens (Eurostat) ou trains prévus sur le trajet."""
+    """Affluence par mois vs la moyenne de l'année : passagers de la liaison Paris → destination (Eurostat),
+    passagers aériens France (national / international) ou trains prévus sur le trajet SNCF."""
+    if mode == "avion" and is_air_route(destination):
+        sql = """WITH y AS (SELECT toYear(month) yr, avg(passengers) a FROM vg_air_route
+                            WHERE dest_icao = {d:String} AND toYear(month) NOT IN (2020, 2021) GROUP BY yr HAVING count() = 12)
+                 SELECT toMonth(month) AS m, avg(passengers / a - 1) * 100 AS pct, any(dest_name) AS name
+                 FROM vg_air_route JOIN y ON toYear(month) = yr WHERE dest_icao = {d:String} GROUP BY m ORDER BY m"""
+        rows, hit = cached(f"vg:demand:route:{destination}", 86400, lambda: query(sql, {"d": destination}))
+        name = rows[0]["name"] if rows else destination
+        return {"mode": mode, "destination": destination, "destination_name": name, "cache_hit": hit,
+                "source": f"Eurostat avia_par_fr, passagers Paris (Roissy + Orly) → {name}, 2016-2024 hors 2020-2021",
+                "months": [{"month": r["m"], "demand_vs_year_pct": round(r["pct"], 1)} for r in rows]}
     if mode == "avion":
         cov = "INTL" if destination == "international" else "NAT"
         sql = """WITH y AS (SELECT toYear(month) yr, avg(passengers) a FROM vg_air_pax
@@ -62,11 +77,22 @@ def get_demand(mode, destination=None):
 
 
 def list_destinations():
-    rows, _ = cached("vg:dest:v1", 86400, lambda: query(
-        """SELECT destination, sum(planned) AS trains, round(avg(duration_min)) AS duration FROM vg_rail_regularity
-           WHERE origin LIKE 'PARIS%' AND month >= '2025-01-01' GROUP BY destination ORDER BY trains DESC"""))
-    return [{"destination": r["destination"], "trains_since_2025": int(r["trains"]), "duration_min": int(r["duration"])}
-            for r in rows]
+    """Destinations TGV depuis Paris (France et international) avec au moins deux ans de données."""
+    rows, _ = cached("vg:dest:v3", 86400, lambda: query(
+        """SELECT destination, sum(planned) AS trains, round(avg(duration_min)) AS duration,
+                  countIf(service = 'National') = 0 AS intl, count(DISTINCT month) AS months
+           FROM vg_rail_regularity WHERE origin LIKE 'PARIS%' AND month >= '2024-01-01'
+           GROUP BY destination HAVING months >= 12 ORDER BY trains DESC"""))
+    return [{"destination": r["destination"], "trains_since_2024": int(r["trains"]), "duration_min": int(r["duration"]),
+             "international": bool(r["intl"])} for r in rows]
+
+
+def list_air_destinations():
+    rows, _ = cached("vg:airdest:v1", 86400, lambda: query(
+        """SELECT dest_icao, any(dest_name) AS name, any(country) AS country, sumIf(passengers, toYear(month) = 2024) AS pax
+           FROM vg_air_route GROUP BY dest_icao ORDER BY pax DESC"""))
+    return [{"code": r["dest_icao"], "name": r["name"], "country": r["country"], "passengers_2024": int(r["pax"]),
+             "international": r["country"] != "FR"} for r in rows]
 
 
 def _city_key(destination):
@@ -169,7 +195,10 @@ def compute_travel_window(mode, destination, travel_month, today):
                                                          date.fromisoformat(str(travel_month)).month):
             t["target"] = True
     target = next((t for t in timeline if t.get("target")), None)
-    return {"mode": mode, "destination": destination, "flexible": flexible, "best": best, "target": target,
+    dem = get_demand(mode, destination)
+    return {"mode": mode, "destination": destination, "destination_name": dem.get("destination_name"),
+            "price_source": get_price_seasonality(mode)["source"], "demand_source": dem["source"],
+            "flexible": flexible, "best": best, "target": target,
             "timeline": timeline, "calendar": [c for c in cal if c["kind"] == "vacances" and "C" in (c["zones"] or "")
                                                or c["kind"] == "ferie"],
             "saving_vs_target_pts": round(target["price_vs_year_pct"] - best["price_vs_year_pct"], 1) if target else None,

@@ -42,13 +42,35 @@ test('train vers Lyon en juillet : meilleur mois, trajet, frise, trace', async (
 test("avion flexible vers l'étranger : 12 mois, pas de carte trajet", async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('mode-avion').click();
-  await page.getByTestId('air-international').click();
+  await page.getByTestId('air-destination').selectOption('international');
   await page.getByTestId('when-flex').click();
   await expect(page.getByTestId('months')).toBeHidden();
   await page.getByTestId('go').click();
   await expect(page.getByTestId('window')).toContainText(/Pars en/);
   await expect(page.getByTestId('tl-month')).toHaveCount(12);
   await expect(page.getByTestId('route')).toBeHidden();
+});
+
+test('vol Paris → New York : affluence propre à la liaison', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('mode-avion').click();
+  await expect(page.getByTestId('air-destination').locator('option')).not.toHaveCount(0);
+  await page.getByTestId('air-destination').selectOption('KJFK');
+  await page.getByTestId('go').click();
+  await expect(page.locator('#r-eyebrow')).toHaveText('Vol Paris → New York');
+  await expect(page.locator('#rail-sub')).toContainText('liaison Paris → New York');
+  const g = await page.getByTestId('grounding').textContent();
+  const [ok, total] = g.match(/(\d+)\/(\d+)/).slice(1).map(Number);
+  expect(ok).toBe(total);
+});
+
+test("train vers Genève : destinations à l'étranger proposées", async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('destination').locator('optgroup')).toHaveCount(2);
+  await page.getByTestId('destination').selectOption('GENEVE');
+  await page.getByTestId('go').click();
+  await expect(page.locator('#r-eyebrow')).toHaveText('Paris → Geneve');
+  await expect(page.locator('.mc.best')).toHaveCount(1);
 });
 
 test('mémoire : la 2e recherche se souvient de la 1re', async ({ page }) => {

@@ -29,6 +29,9 @@ CH_SCHEMA = [
     """CREATE TABLE IF NOT EXISTS vg_rail_fares (carrier LowCardinality(String), origin LowCardinality(String),
        destination LowCardinality(String), class LowCardinality(String), profile LowCardinality(String),
        price_min Float32, price_max Float32) ENGINE = MergeTree ORDER BY (origin, destination)""",
+    """CREATE TABLE IF NOT EXISTS vg_air_route (dest_icao LowCardinality(String), dest_name String,
+       country LowCardinality(String), month Date, passengers Float64)
+       ENGINE = MergeTree ORDER BY (dest_icao, month)""",
     """CREATE TABLE IF NOT EXISTS vg_tgvmax (day Date, train_no String, axe LowCardinality(String),
        origin LowCardinality(String), destination LowCardinality(String), dep_time String, arr_time String,
        available UInt8) ENGINE = MergeTree ORDER BY (origin, destination, day)""",
@@ -75,9 +78,22 @@ def eurostat_rows(path, key_dim):
     return out
 
 
+def ingest_air_routes(c):
+    """Passagers par liaison Paris (Roissy + Orly) → destination, Eurostat avia_par_fr (pairs_sel.json)."""
+    names = json.load(open(RAW / "pairs_sel.json", encoding="utf-8"))["names"]
+    agg = {}
+    for pair, m, v in eurostat_rows(RAW / "airroutes.json", "airp_pr"):
+        icao = pair[-4:]
+        k = (icao, pair.split("_")[2], m)
+        agg[k] = agg.get(k, 0) + v
+    rows = [(icao, names[icao], country, m, v) for (icao, country, m), v in agg.items()]
+    c.insert("vg_air_route", rows, column_names=["dest_icao", "dest_name", "country", "month", "passengers"])
+    print(f"Eurostat liaisons Paris : {len(rows)} points, {len({r[0] for r in rows})} destinations")
+
+
 def main():
     c = client()
-    for t in ("vg_price_index", "vg_air_pax", "vg_rail_regularity", "vg_rail_fares", "vg_tgvmax"):
+    for t in ("vg_price_index", "vg_air_pax", "vg_rail_regularity", "vg_rail_fares", "vg_tgvmax", "vg_air_route"):
         c.command(f"DROP TABLE IF EXISTS {t}")
     for stmt in CH_SCHEMA:
         c.command(stmt)
@@ -90,6 +106,8 @@ def main():
     rows = eurostat_rows(RAW / "airpax.json", "tra_cov")
     c.insert("vg_air_pax", rows, column_names=["coverage", "month", "passengers"])
     print(f"Eurostat passagers aériens : {len(rows)} points")
+
+    ingest_air_routes(c)
 
     reg = json.load(open(RAW / "regularite-mensuelle-tgv-aqst.json", encoding="utf-8"))
     rows = [(month(r["date"]), r["service"] or "", r["gare_depart"], r["gare_arrivee"], r["duree_moyenne"] or 0,

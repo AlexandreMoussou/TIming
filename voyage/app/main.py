@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.agents import orchestrator
-from app.agents.tools import get_demand, get_price_seasonality, list_destinations
+from app.agents.tools import get_demand, get_price_seasonality, list_air_destinations, list_destinations
 from app.db import postgres as pg
 from app.db.clickhouse import query
 from app.db.valkey import cached
@@ -51,6 +51,11 @@ def health():
 @app.get("/api/destinations")
 def destinations():
     return list_destinations()
+
+
+@app.get("/api/air-destinations")
+def air_destinations():
+    return list_air_destinations()
 
 
 @app.get("/api/insights")
