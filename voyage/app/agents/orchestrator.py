@@ -228,7 +228,7 @@ def advisor_llm(run, p, a, c, memory):
     return text
 
 
-def grounding(text, outputs):
+def grounding(text, outputs, salient=None):
     text = re.sub(r"(?<=\d)[   ](?=\d{3}(?!\d))", "", text)
     nums = {float(x.replace(",", ".")) for x in re.findall(r"\d+(?:[.,]\d+)?", text)}
     nums = {x for x in nums if not 1900 < x < 2100}
@@ -250,7 +250,14 @@ def grounding(text, outputs):
     for o in outputs:
         walk(o)
     ok = [x for x in nums if x in pool or round(x) in pool]
-    return {"numbers": len(nums), "grounded": len(ok), "ungrounded": sorted(nums - set(ok))}
+    # Un écart entre deux valeurs sourcées (ex. 502 € − 408 € = 94 €, +24 % vs −8 %) est calculé, pas inventé
+    ints = {round(v) for v in (salient if salient is not None else pool) if isinstance(v, (int, float)) and abs(v) < 100000}
+    def is_gap(x):  # x ≈ a − b pour deux valeurs sourcées a et b (à 1 près, pour les arrondis)
+        x = round(x)
+        return any(b + k in ints for a in ints for b in (a - x, a + x) for k in (-1, 0, 1))
+    derived = [x for x in nums - set(ok) if is_gap(x)]
+    return {"numbers": len(nums), "grounded": len(ok) + len(derived), "derived": len(derived),
+            "ungrounded": sorted(nums - set(ok) - set(derived))}
 
 
 def describe(p):
@@ -296,7 +303,15 @@ def recommend(params, handle=None, today=None):
     advice = advisor_llm(run, p, a, c, memory) if mode == "llm" else advisor_template(p, a)
     if mode == "rules":
         run.log("advisor", "rules", "template", None, {"text": advice})
-    g = grounding(advice, run.tool_outputs)
+    # valeurs-clés dont un écart peut être cité : mois de la frise, vrais billets, tarifs SNCF
+    salient = [v for t in a["window"]["timeline"] for v in (t["price_vs_year_pct"], t["demand_vs_year_pct"])]
+    for f in a.get("fares", []):
+        salient += [f.get("lowest_price") or 0] + [x["price"] for x in f.get("flights", [])]
+        if f.get("trend"):
+            salient += [f["trend"]["first"], f["trend"]["last"]]
+    if a.get("route"):
+        salient += [x for fa in a["route"]["fares"] for x in (fa["price_min"], fa["price_max"])]
+    g = grounding(advice, run.tool_outputs, salient)
     run.log("advisor", "final", "grounding_check", None, g)
     result = {"run_id": run.id, "mode": mode, "params": p, "advice": advice, "grounding": g, "memory": memory,
               "window": a["window"], "route": a["route"], "fares": a["fares"], "calendar": c["periods"],

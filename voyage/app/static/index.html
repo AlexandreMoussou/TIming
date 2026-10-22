@@ -439,7 +439,7 @@ function render(d) {
   $("advice").textContent = d.advice;
   $("memory").textContent = d.memory ? "Je me souviens : " + d.memory : "";
   const g = d.grounding;
-  $("grounding").textContent = `✓ ${g.grounded}/${g.numbers} chiffres retrouvés dans les données`;
+  $("grounding").textContent = `✓ ${g.grounded}/${g.numbers} chiffres retrouvés dans les données${g.derived ? ` (dont ${g.derived} calculés)` : ""}`;
   $("grounding").className = "badge " + (g.ungrounded.length ? "warn" : "ok");
   $("mode-b").textContent = d.mode === "llm" ? "Agents Claude" : "Mode sans LLM";
   $("latency").textContent = `${(d.latency_ms / 1000).toFixed(1).replace(".", ",")} s · ${d.usage.llm_calls} appels Claude · ${d.usage.tool_calls} requêtes`;
