@@ -33,7 +33,7 @@ d'offre, pas à une remise saisonnière. Nous ne revendiquons donc aucune écono
 - DVF enregistre des ventes signées, pas des annonces de location : le volume est un proxy de la rotation des
   logements, pas un compte d'annonces.
 - 5 années complètes (2021-2025), dont 2024 perturbée par les JO et les législatives anticipées.
-- La pénalité de concurrence (−12 pts par événement, −15 pts par période creuse) est une hypothèse de réglage.
+- La pénalité de concurrence (−30 pts pendant le rush de la rentrée, −12 pts par autre événement, −15 pts par période creuse) est une hypothèse de réglage ; le backtest donne les mêmes résultats avec −12 pts pour le rush.
 
 # Claude seul vs Timing (20 questions, même modèle claude-sonnet-5-5)
 

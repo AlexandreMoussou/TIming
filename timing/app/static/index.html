@@ -100,6 +100,28 @@
   .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
   h2 { font-size: 22px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
   .sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .datemode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .datemode .opt { padding: 10px 6px; font-size: 14px; }
+  .datemode .opt.on { border-color: var(--sun); background: var(--sun-soft); }
+  .flexnote { background: var(--sun-soft); border-radius: 14px; padding: 12px 14px; font-weight: 600; font-size: 14px; }
+  .tl { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .tm { border-radius: 18px; padding: 12px; border: 2px solid var(--line); background: #fff; display: flex; flex-direction: column; gap: 5px; }
+  .tm .mn { font-family: Fredoka; font-weight: 700; font-size: 19px; line-height: 1.1; }
+  .tm .yr { font-size: 12px; color: var(--muted); font-weight: 700; }
+  .tm .st { align-self: flex-start; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 2px 9px; }
+  .tm .why { font-size: 12.5px; color: #4a4160; line-height: 1.35; }
+  .dots { display: flex; gap: 3px; align-items: center; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .dots i.f { background: var(--teal); }
+  .tm.best { border-color: var(--teal); background: linear-gradient(180deg, #e3f7f3, #fff); box-shadow: 0 8px 20px #1f9e8f33; }
+  .tm.best .st { background: var(--teal); color: #fff; }
+  .tm.good .st { background: var(--teal-soft); color: #137a6e; }
+  .tm.ok .st { background: var(--sun-soft); color: #7a5200; }
+  .tm.avoid { background: #fff7f6; } .tm.avoid .st { background: var(--coral-soft); color: #c0392b; }
+  .tm.too_early, .tm.too_late { opacity: .6; } .tm.too_early .st, .tm.too_late .st { background: #eef0f3; color: var(--muted); }
+  .tm.move { border-style: dashed; border-color: var(--coral); } .tm.move .st { background: var(--coral); color: #fff; }
+  .tlegend { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  details.more { margin-top: 16px; } details.more summary { font-size: 15px; color: var(--muted); }
   .cal { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-bottom: 14px; }
   @media (max-width: 640px) { .cal { grid-template-columns: repeat(6, 1fr); } }
   .cal div { border-radius: 12px; padding: 8px 2px; text-align: center; font-weight: 800; font-size: 13px; background: var(--bar); color: var(--ink); }
@@ -200,9 +222,17 @@
         <select id="zone" data-testid="zone" aria-label="Arrondissement"></select>
       </div>
       <div>
-        <p class="step-t"><span class="num" style="background:var(--sun);color:var(--ink)">4</span>Tu dois être installé·e en…</p>
-        <div class="years" id="years"></div>
-        <div class="months" id="months" data-testid="months"></div>
+        <p class="step-t"><span class="num" style="background:var(--sun);color:var(--ink)">4</span>Quand ?</p>
+        <div class="datemode" id="datemode">
+          <button type="button" class="opt on" data-v="date" data-testid="mode-date">📅 J'ai une date</button>
+          <button type="button" class="opt" data-v="flex" data-testid="mode-flex">🌈 Pas de date, je suis flexible</button>
+        </div>
+        <div id="datepick">
+          <p class="hint" style="margin:0 0 6px">Tu dois être installé·e en…</p>
+          <div class="years" id="years"></div>
+          <div class="months" id="months" data-testid="months"></div>
+        </div>
+        <p class="flexnote hidden" id="flexnote">Pas de souci : je cherche le meilleur moment pour te lancer dans les 12 prochains mois.</p>
         <p class="step-t" style="margin-top:20px"><span class="num">5</span><span id="budget-l">Ton budget max par mois</span></p>
         <div class="row"><span class="budget-v" id="budget-v" data-testid="budget-value">900 €</span>
           <label class="hint" style="margin-left:auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="nobudget" style="width:auto"> pas de budget</label></div>
@@ -257,9 +287,9 @@
         <div class="badges"><span class="badge" id="grounding" data-testid="grounding"></span><span class="badge lav" id="mode"></span><span class="badge sun" id="latency"></span></div>
       </div>
       <div class="stats">
-        <div class="stat a"><b id="s-vol"></b><span>de logements qui changent de main vs la moyenne</span></div>
-        <div class="stat b"><b id="s-naive"></b><span id="s-naive-l"></span></div>
-        <div class="stat c"><b id="s-price"></b><span>prix au m² vs la médiane de l'année</span></div>
+        <div class="stat a"><b id="s-vol"></b><span id="s-vol-l"></span></div>
+        <div class="stat b"><b id="s-zone"></b><span id="s-zone-l"></span></div>
+        <div class="stat c"><b id="s-wait"></b><span id="s-wait-l"></span></div>
         <div class="acts">
           <button class="btn soft" id="alert" data-testid="alert" type="button">🔔 Préviens-moi</button>
           <button class="btn soft" id="up" type="button" aria-label="Utile">👍</button>
@@ -270,16 +300,24 @@
     </section>
 
     <section class="card">
-      <h2>📈 Ton année, mois par mois</h2>
-      <p class="sub">En vert, le mois où te lancer ; en pointillé, ton emménagement. Données réelles 2021-2025.</p>
-      <div class="cal" id="cal"></div>
-      <div class="chartbox"><canvas id="chart" data-testid="chart"></canvas></div>
-      <div class="legend">
-        <span><i class="sw" style="background:var(--bar)"></i>Logements qui changent de main vs moyenne (proxy de l'offre)</span>
-        <span><i class="sw" style="background:var(--teal)"></i>Mois recommandé</span>
-        <span><i class="sw" style="background:var(--coral)"></i>Prix au m² vs médiane de l'année</span>
+      <h2>🗓️ Ton calendrier, mois par mois</h2>
+      <p class="sub" id="tl-sub">Pour chaque mois : est-ce un bon moment pour te lancer, et pourquoi.</p>
+      <div class="tlegend">
+        <span class="badge">⭐ Le meilleur moment</span><span class="badge">👍 Bon</span><span class="badge sun">😐 Moyen</span>
+        <span class="badge warn">✋ À éviter</span><span class="badge" style="background:#eef0f3;color:var(--muted)">⏳ Trop tôt / trop tard</span>
       </div>
-      <p class="hint" id="season-src"></p>
+      <div class="tl" id="timeline" data-testid="timeline"></div>
+      <p class="hint" style="margin:10px 0 0">Les points ● indiquent combien de logements changent de main ce mois-là, comparé à un mois moyen (5 points = beaucoup). Calculé sur les ventes réelles 2021-2025 à Paris.</p>
+      <details class="more">
+        <summary>📊 Voir les données détaillées (pour les curieux)</summary>
+        <div class="chartbox" style="margin-top:12px"><canvas id="chart" data-testid="chart"></canvas></div>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--bar)"></i>Logements qui changent de main vs un mois moyen</span>
+          <span><i class="sw" style="background:var(--teal)"></i>Mois recommandé</span>
+          <span><i class="sw" style="background:var(--coral)"></i>Prix au m² vs le reste de l'année</span>
+        </div>
+        <p class="hint" id="season-src"></p>
+      </details>
     </section>
 
     <div class="two">
@@ -344,6 +382,12 @@ function paintDate() {
   });
 }
 paintDate();
+state.flexible = false;
+document.querySelectorAll("#datemode .opt").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("#datemode .opt").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on"); state.flexible = b.dataset.v === "flex";
+  $("datepick").classList.toggle("hidden", state.flexible); $("flexnote").classList.toggle("hidden", !state.flexible);
+});
 function pick(groupId, key) {
   document.querySelectorAll(`#${groupId} .opt`).forEach((b) => b.onclick = () => {
     document.querySelectorAll(`#${groupId} .opt`).forEach((x) => x.classList.remove("on"));
@@ -388,7 +432,7 @@ $("f").onsubmit = async (ev) => {
   const handle = $("handle").value.trim();
   try { localStorage.setItem("timing.handle", handle); } catch (e) {}
   const body = { handle: handle || null, intent: state.intent, typology: state.typology, zone: zone.value,
-    move_in: `${state.year}-${String(state.month).padStart(2, "0")}-01`,
+    move_in: state.flexible ? null : `${state.year}-${String(state.month).padStart(2, "0")}-01`, flexible: state.flexible,
     budget: $("nobudget").checked ? null : +$("budget").value };
   try {
     const r = await fetch("/api/recommend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -416,10 +460,12 @@ function render(d) {
   } else {
     const e = new Date(w.end);
     $("window").textContent = `${d.params.intent === "louer" ? "Cherche" : d.params.intent === "acheter" ? "Signe ton compromis" : "Mets en vente"} en ${MONTHS_LONG[e.getMonth()]} ${e.getFullYear()}`;
-    $("s-vol").textContent = pct(w.best.volume_vs_avg_pct);
-    $("s-naive").textContent = (w.gain_vs_naive.volume_pts > 0 ? "+" : "") + w.gain_vs_naive.volume_pts.toFixed(0) + " pts";
-    $("s-naive-l").textContent = `de volume vs ${w.naive.label.split(" (")[0]}, ton mois d'emménagement`;
-    $("s-price").textContent = pct(w.best.price_vs_year_pct, 1);
+    const v = w.best.volume_vs_avg_pct;
+    $("s-vol").textContent = Math.abs(v) < 1 ? "≈" : pct(v);
+    $("s-vol-l").textContent = v >= 1 ? "de logements en plus qu'un mois moyen" : v <= -1 ? "de logements qu'un mois moyen, mais moins de concurrence" : "autant de logements qu'un mois moyen";
+    const wait = (w.best.year - now.getFullYear()) * 12 + w.best.month - (now.getMonth() + 1);
+    $("s-wait").textContent = wait <= 0 ? "Maintenant" : `Dans ${wait} mois`;
+    $("s-wait-l").textContent = wait <= 0 ? "c'est le bon moment, lance-toi" : "le temps de préparer ton dossier avant de te lancer";
   }
   $("advice").textContent = d.advice;
   $("memory").textContent = d.memory ? "💭 Je me souviens : " + d.memory : "";
@@ -430,13 +476,19 @@ function render(d) {
   $("latency").textContent = `⏱ ${(d.latency_ms / 1000).toFixed(1).replace(".", ",")} s · ${d.usage.llm_calls} appels Claude · ${d.usage.tool_calls} requêtes`;
   $("alert-msg").textContent = "";
 
-  // Calendrier et graphique
+  // Frise des mois, en mots
+  const ST = { best: "⭐ Le meilleur", good: "👍 Bon moment", ok: "😐 Moyen", avoid: "✋ À éviter",
+    too_early: "⏳ Trop tôt", too_late: "⌛ Trop tard", move: "🏠 Emménagement" };
+  const early = { louer: "Trop tôt : les annonces sortent 1 à 3 mois avant l'entrée", acheter: "Trop tôt : on signe en général 3 à 9 mois avant", vendre: "Trop tôt pour mettre en vente" }[d.params.intent];
+  $("tl-sub").textContent = w.flexible ? "Les 12 prochains mois : est-ce un bon moment pour te lancer, et pourquoi." : "D'aujourd'hui à ton emménagement : est-ce un bon moment pour te lancer, et pourquoi.";
+  $("timeline").innerHTML = (w.timeline || []).map((t) => `<div class="tm ${t.status}" data-testid="tl-month">
+      <div><div class="mn">${MONTHS_LONG[t.month - 1]}</div><div class="yr">${t.year}</div></div>
+      <span class="st">${ST[t.status]}</span>
+      <div class="dots" title="logements qui changent de main">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= t.choice_level ? "f" : ""}"></i>`).join("")}</div>
+      <div class="why">${esc(t.status === "too_early" ? early : t.status === "too_late" ? "Trop tard : trop proche de ton emménagement" : t.status === "move" ? "Tu emménages ce mois-ci" : t.reason)}</div>
+    </div>`).join("");
+  // Graphique détaillé (replié)
   const months = w.season.months, best = w.too_late ? null : w.best.month;
-  const moveM = new Date(d.params.move_in).getMonth() + 1;
-  $("cal").innerHTML = months.map((m) => {
-    const cls = [m.month === best ? "best" : m.volume_vs_avg_pct > 10 ? "hot" : m.volume_vs_avg_pct < -10 ? "cold" : "", m.month === moveM ? "move" : ""].join(" ");
-    return `<div class="${cls}">${MONTHS[m.month - 1]}<small>${pct(m.volume_vs_avg_pct)}</small></div>`;
-  }).join("");
   if (chart) chart.destroy();
   chart = new Chart($("chart"), {
     data: { labels: months.map((m) => MONTHS[m.month - 1]),
@@ -451,6 +503,11 @@ function render(d) {
         y: { grid: { color: "#f0e4d8" }, ticks: { color: "#6f6684", callback: (v) => v + " %" } },
         y2: { position: "right", grid: { display: false }, ticks: { color: "#e0503f", callback: (v) => v + " %" } } } } });
   $("season-src").textContent = `${w.season.source}${w.season.cache_hit ? " · servi par le cache Valkey" : ""}. Méthode : ${w.method || ""}.`;
+  const fit = d.ranking.ranking.find((r) => r.fits_budget) || d.ranking.ranking[0];
+  if (fit && fit.cost != null) {
+    $("s-zone").textContent = `${shortName(fit.nom)} · ${fit.cost.toLocaleString("fr-FR")} €`;
+    $("s-zone-l").textContent = fit.fits_budget && d.params.budget ? "l'arrondissement le moins cher dans ton budget" : "l'arrondissement le moins cher";
+  }
 
   // Arrondissements
   const rent = d.params.intent === "louer";

@@ -19,7 +19,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-from app.agents.tools import COMPETITION, MONTHS_FR, SLOWDOWN, _event_names_in
+from app.agents.tools import COMPETITION, MONTHS_FR, SLOWDOWN, _competition_penalty, _event_names_in
 from app.db import postgres as pg
 from app.db.clickhouse import query
 
@@ -76,7 +76,7 @@ def main():
                     names = _event_names_in(events, y, m)
                     comp = [x for x in names if x.startswith(COMPETITION[t])]
                     slow = [x for x in names if x.startswith(SLOWDOWN)]
-                    cands.append((vol[m] - 12 * len(comp) - 15 * len(slow), m))
+                    cands.append((vol[m] - _competition_penalty(comp) - 15 * len(slow), m))
                 rec = max(cands)[1]
                 n_rec, n_naive = actual[rec][0], actual[MOVE_IN_MONTH][0]
                 n_rand = st.mean(actual[m][0] for _, m in cands)

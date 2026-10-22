@@ -178,7 +178,8 @@ def analyst(run, p, today):
 
 def events_agent(run, p, today):
     scope = "75"
-    out = run.call_tool("events", "get_upcoming_events", {"start": today, "end": p["move_in"], "scope": scope})
+    end = p["move_in"] or date.fromordinal(date.fromisoformat(today).toordinal() + 365).isoformat()
+    out = run.call_tool("events", "get_upcoming_events", {"start": today, "end": end, "scope": scope})
     note = None
     if llm():
         note = agent_loop(
@@ -207,16 +208,21 @@ def advisor_template(p, a, e):
     fits = [r for r in a["ranking"]["ranking"] if r["fits_budget"]][:3]
     zones = ", ".join(f"{r['nom'].replace('Paris ', '').replace(' Arrondissement', '')} (~{r['cost']:,} €)".replace(",", " ")
                       for r in fits)
+    more = lambda v: (f"environ {v:.0f} % de logements en plus qu'un mois moyen" if v >= 1 else
+                      f"environ {-v:.0f} % de logements en moins qu'un mois moyen" if v <= -1 else
+                      "autant de logements qu'un mois moyen")
+    when = "sans date imposée, le meilleur moment est" if w.get("flexible") else "le meilleur moment est"
     if p["intent"] == "louer":
-        s = (f"Pour un {typ}, cherche en {b['label']} : le volume de logements qui changent de main y est à "
-             f"{b['volume_vs_avg_pct']:+.0f} % de la moyenne annuelle")
-        s += (f", contre {n['volume_vs_avg_pct']:+.0f} % en {n['label'].split(' (')[0]}" if b["label"].split()[0] !=
-              n["label"].split()[0] else "")
+        s = f"Pour un {typ}, {when} {b['label']} : {more(b['volume_vs_avg_pct'])}"
+        if b["label"].split()[0] != n["label"].split()[0]:
+            s += f" (en {n['label'].split(' (')[0]} : {n['volume_vs_avg_pct']:+.0f} %)"
         if b["competition_events"]:
-            s += f". Concurrence à surveiller : {', '.join(x.rsplit(' ', 1)[0] for x in b['competition_events'])}"
+            s += f". À surveiller : {', '.join(dict.fromkeys(x.rsplit(' ', 1)[0] for x in b['competition_events']))}"
     else:
-        s = (f"Pour {p['intent']} un {typ}, vise un compromis en {b['label']} : prix au m² du mois de signature "
-             f"{b['price_vs_year_pct']:+.1f} % vs la médiane de l'année, volume {b['volume_vs_avg_pct']:+.0f} %")
+        verb = "signe ton compromis" if p["intent"] == "acheter" else "mets en vente"
+        s = (f"Pour {p['intent']} un {typ}, {verb} en {b['label']} : les prix y sont en général "
+             f"{b['price_vs_year_pct']:+.1f} % par rapport au reste de l'année, avec {more(b['volume_vs_avg_pct'])}. "
+             f"L'effet du mois sur le prix reste faible : le choix du quartier compte plus")
     if zones:
         s += f". Arrondissements dans ton budget : {zones}"
     elif p.get("budget"):
@@ -229,7 +235,7 @@ def advisor_template(p, a, e):
 
 def advisor_llm(run, p, a, e, memory_note):
     t = time.time()
-    payload = {"params": p, "window": {k: a["window"].get(k) for k in ("best", "naive", "gain_vs_naive", "method",
+    payload = {"params": p, "window": {k: a["window"].get(k) for k in ("best", "naive", "gain_vs_naive", "flexible",
                                                                          "candidates", "too_late", "message")},
                "ranking": a["ranking"]["ranking"][:8], "analyst_note": a["note"], "events_note": e["note"],
                "events": [x["name"] for x in e["events"]][:30], "memory": memory_note}
@@ -239,8 +245,10 @@ def advisor_llm(run, p, a, e, memory_note):
                 "Écris en français, tutoiement, 4 à 5 phrases courtes : quand chercher (fenêtre), pourquoi (chiffres), où "
                 "(2-3 arrondissements dans le budget avec loyer estimé), quels événements surveiller. N'utilise QUE "
                 "des chiffres présents dans les données fournies, arrondis à l'unité comme dans les données. Ne parle "
-                "jamais de 'score'. Texte brut, sans markdown ni puces. Rappelle en fin de réponse que le volume de "
-                "ventes DVF est un proxy de l'offre. Si une mémoire utilisateur est fournie, fais-y référence."),
+                "jamais de 'score', de 'volume', de 'proxy', de 'médiane' ni de 'DVF' : parle simplement, par exemple "
+                "« 30 % de logements en plus qu'un mois moyen ». Si flexible (move_in null), il n'y a pas de date "
+                "imposée : dis que c'est le meilleur moment des 12 prochains mois. Texte brut, sans markdown ni puces. "
+                "Si une mémoire utilisateur est fournie, fais-y référence."),
         messages=[{"role": "user", "content": json.dumps(payload, default=str, ensure_ascii=False)}])
     text = " ".join(b.text for b in msg.content if b.type == "text").strip()
     run.log("advisor", "llm", None, None, {"text": text}, int((time.time() - t) * 1000))
@@ -285,10 +293,11 @@ def get_user(handle):
 
 def describe(p):
     """Résumé lisible d'une recherche faite par formulaire (sert de libellé en mémoire)."""
-    y, m = int(p["move_in"][:4]), int(p["move_in"][5:7])
+    when = (f"{MONTHS_FR[int(p['move_in'][5:7]) - 1]} {p['move_in'][:4]}" if p.get("move_in")
+            else "sans date d'emménagement")
     zone = "tout Paris" if p["zone"] == "75" else f"Paris {int(p['zone'][3:])}e"
     budget = f", {p['budget']} €" if p.get("budget") else ""
-    return f"{p['intent']} un {TYPO_LABEL[p['typology']]}, {zone}, {MONTHS_FR[m - 1]} {y}{budget}"
+    return f"{p['intent']} un {TYPO_LABEL[p['typology']]}, {zone}, {when}{budget}"
 
 
 def recommend(text=None, handle=None, today=None, overrides=None):
@@ -305,13 +314,16 @@ def recommend(text=None, handle=None, today=None, overrides=None):
                 {"profile": profile, "past": [x["query_text"] for x in past]})
     mode = "llm" if llm() else "rules"
     fields = {k: v for k, v in (overrides or {}).items() if v not in (None, "")}
+    flexible = bool(fields.pop("flexible", False))
     if text and mode == "llm":  # question libre (API, benchmark) : l'intake agent l'interprète
         p = intake_llm(run, text, profile, today)
     else:  # formulaire : champs cochés, complétés par la mémoire de l'utilisateur
         p = intake_rules(text or "", profile)
         run.log("intake", "form", "validate", {"fields": fields, "memory": profile}, p)
     p.update(fields)
-    if not p.get("move_in"):
+    if flexible:  # pas de date d'emménagement : meilleur moment des 12 prochains mois
+        p["move_in"] = None
+    elif not p.get("move_in"):
         p["move_in"] = date(date.fromisoformat(today).year + 1, 9, 1).isoformat()
     text = text or describe(p)
     with ThreadPoolExecutor(2) as ex:  # analyst et events en parallèle

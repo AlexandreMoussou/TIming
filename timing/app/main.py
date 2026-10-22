@@ -26,6 +26,7 @@ class RecommendIn(BaseModel):
     zone: str | None = None
     move_in: str | None = None
     budget: int | None = None
+    flexible: bool = False
 
 
 class FeedbackIn(BaseModel):
@@ -61,7 +62,7 @@ def health():
 
 @app.post("/api/recommend")
 def recommend(body: RecommendIn):
-    overrides = {k: getattr(body, k) for k in ("intent", "typology", "zone", "move_in", "budget")}
+    overrides = {k: getattr(body, k) for k in ("intent", "typology", "zone", "move_in", "budget", "flexible")}
     return orchestrator.recommend(body.text, body.handle or None, body.today or date.today().isoformat(), overrides)
 
 

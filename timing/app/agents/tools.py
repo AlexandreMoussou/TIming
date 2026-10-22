@@ -106,55 +106,123 @@ def _event_names_in(events, y, m):
     return [e["name"] for e in events if e["start_date"] < str(last) and e["end_date"] >= str(first)]
 
 
+def _short(name):
+    """'Rush de la rentrée 2027' -> 'rush de la rentrée' (sans l'année, pour une phrase)."""
+    n = name.rsplit(" ", 1)[0] if name[-4:].isdigit() or name[-9:-5].isdigit() else name
+    n = n.split(" (")[0]
+    return n[0].lower() + n[1:]
+
+
+def _competition_penalty(competition):
+    # le rush de la rentrée est de loin le pic de concurrence ; les autres événements pèsent moins
+    return sum(30 if n.startswith("Rush de la rentrée") else 12 for n in competition)
+
+
+def _choice_level(v):
+    return 1 if v < -25 else 2 if v < -8 else 3 if v < 8 else 4 if v < 20 else 5
+
+
+def _reason(intent, s, competition, slow):
+    parts = []
+    v, p = s["volume_vs_avg_pct"], s["price_vs_year_pct"]
+    if intent == "louer":
+        lvl = _choice_level(v)
+        parts.append("plus de logements que d'habitude" if lvl >= 4 else "moins de logements que d'habitude"
+                     if lvl <= 2 else "offre dans la moyenne")
+    else:
+        parts.append("prix un peu plus bas" if p <= -0.5 else "prix un peu plus hauts" if p >= 0.5 else "prix stables")
+        parts.append("marché actif" if v >= 15 else "marché calme" if v <= -15 else "activité moyenne")
+    if competition:
+        parts.append("concurrence : " + ", ".join(list(dict.fromkeys(_short(x) for x in competition))[:2]))
+    if slow:
+        parts.append(", ".join(dict.fromkeys(_short(x) for x in slow)))
+    text = " · ".join(parts)
+    return text[0].upper() + text[1:]
+
+
 def compute_window(intent, typology, zone, move_in, today):
-    """Choisit le mois de recherche. Location : on cherche 1 à 3 mois avant l'emménagement, on maximise
-    l'offre (volume) et on pénalise la concurrence (événements) et les périodes creuses.
-    Achat : la vente se signe ~3 mois après le compromis ; on cherche le mois de signature le moins cher."""
-    move_in, today = date.fromisoformat(str(move_in)), date.fromisoformat(str(today))
+    """Choisit le mois de recherche.
+    Location : on cherche 1 à 3 mois avant l'emménagement ; on maximise l'offre (volume) et on pénalise la
+    concurrence (événements) et les périodes creuses. Achat : la vente se signe ~3 mois après le compromis ; on vise
+    le mois de signature le moins cher. Sans date d'emménagement (move_in vide) : meilleur mois des 12 prochains."""
+    today = date.fromisoformat(str(today))
+    flexible = not move_in
+    start = (today.year, today.month)
+    if flexible:
+        lo, hi = start, _shift(*start, 11)
+        end = date(*_shift(*hi, 1), 1)
+    else:
+        move_in = date.fromisoformat(str(move_in))
+        lead_min, lead_max = {"acheter": (3, 9), "vendre": (0, 6)}.get(intent, (1, 3))
+        lo = max(_shift(move_in.year, move_in.month, -lead_max), start)
+        hi = _shift(move_in.year, move_in.month, -lead_min)
+        end = move_in
     season = get_seasonality(zone, typology)
     by_m = {r["month"]: r for r in season["months"]}
-    if intent == "acheter":
-        lead_min, lead_max = 3, 9
-    elif intent == "vendre":
-        lead_min, lead_max = 0, 6
-    else:
-        lead_min, lead_max = 1, 3
-    events = get_upcoming_events(date(today.year, today.month, 1), move_in, zone[:2] if len(zone) > 2 else zone)["events"]
-    lo = _shift(move_in.year, move_in.month, -lead_max)
-    hi = _shift(move_in.year, move_in.month, -lead_min)
-    lo = max(lo, (today.year, today.month))
-    candidates = []
-    for y, m in _months_between(date(*lo, 1), date(*hi, 1)) if lo <= hi else []:
+    events = get_upcoming_events(date(*start, 1), end, zone[:2] if len(zone) > 2 else zone)["events"]
+
+    def month_info(y, m):
         deed_m = m if intent == "louer" else _shift(y, m, 3)[1]
         s = by_m[deed_m]
         names = _event_names_in(events, y, m)
         competition = [n for n in names if n.startswith(COMPETITION[typology])]
         slow = [n for n in names if n.startswith(SLOWDOWN)]
         if intent == "louer":
-            score = s["volume_vs_avg_pct"] - 12 * len(competition) - 15 * len(slow)
+            score = s["volume_vs_avg_pct"] - _competition_penalty(competition) - 15 * len(slow)
         elif intent == "acheter":
             score = -10 * s["price_vs_year_pct"] + 0.3 * s["volume_vs_avg_pct"] - 8 * len(slow)
         else:
             score = 10 * s["price_vs_year_pct"] + 0.3 * s["volume_vs_avg_pct"] - 8 * len(slow)
-        candidates.append({"year": y, "month": m, "label": f"{MONTHS_FR[m - 1]} {y}", "score": round(score, 1),
-                           "volume_vs_avg_pct": s["volume_vs_avg_pct"], "price_vs_year_pct": s["price_vs_year_pct"],
-                           "competition_events": competition, "slowdown_events": slow})
+        return {"year": y, "month": m, "label": f"{MONTHS_FR[m - 1]} {y}", "score": round(score, 1),
+                "volume_vs_avg_pct": s["volume_vs_avg_pct"], "price_vs_year_pct": s["price_vs_year_pct"],
+                "choice_level": _choice_level(s["volume_vs_avg_pct"]),
+                "competition_events": competition, "slowdown_events": slow,
+                "reason": _reason(intent, s, competition if intent == "louer" else [], slow)}
+
+    candidates = [month_info(y, m) for y, m in _months_between(date(*lo, 1), date(*hi, 1))] if lo <= hi else []
+    # Frise lisible : les 12 prochains mois (ou jusqu'à l'emménagement), chacun avec un verdict en mots
+    last_m = hi if flexible else (move_in.year, move_in.month)
+    timeline = []
+    best = max(candidates, key=lambda c: c["score"]) if candidates else None
+    for i in range(12):
+        y, m = _shift(*start, i)
+        if (y, m) > last_m:
+            break
+        info = month_info(y, m)
+        if not flexible and (y, m) == last_m:
+            status = "move"
+        elif (y, m) < lo:
+            status = "too_early"
+        elif (y, m) > hi:
+            status = "too_late"
+        elif best and (y, m) == (best["year"], best["month"]):
+            status = "best"
+        elif best and info["score"] >= best["score"] - 10:
+            status = "good"
+        elif best and info["score"] >= best["score"] - 30:
+            status = "ok"
+        else:
+            status = "avoid"
+        timeline.append({**info, "status": status})
     if not candidates:
-        return {"too_late": True, "message": "La date d'emménagement est trop proche : commence à chercher maintenant.",
+        return {"too_late": True, "flexible": flexible, "timeline": timeline,
+                "message": "La date d'emménagement est trop proche : commence à chercher maintenant.",
                 "season": season, "events": events}
-    best = max(candidates, key=lambda c: c["score"])
-    naive_m = move_in.month if intent == "louer" else _shift(move_in.year, move_in.month, 0)[1]
+    naive_y, naive_m = start if flexible else (move_in.year, move_in.month)
     naive = by_m[naive_m]
+    naive_label = (f"{MONTHS_FR[naive_m - 1]} (chercher tout de suite)" if flexible
+                   else f"{MONTHS_FR[naive_m - 1]} (mois de l'emménagement)")
     return {
-        "intent": intent, "typology": typology, "zone": zone, "best": best, "candidates": candidates,
-        "naive": {"label": f"{MONTHS_FR[naive_m - 1]} (mois de l'emménagement)",
-                  "volume_vs_avg_pct": naive["volume_vs_avg_pct"], "price_vs_year_pct": naive["price_vs_year_pct"]},
+        "intent": intent, "typology": typology, "zone": zone, "flexible": flexible, "best": best,
+        "candidates": candidates, "timeline": timeline,
+        "naive": {"label": naive_label, "volume_vs_avg_pct": naive["volume_vs_avg_pct"],
+                  "price_vs_year_pct": naive["price_vs_year_pct"]},
         "gain_vs_naive": {
             "volume_pts": round(best["volume_vs_avg_pct"] - naive["volume_vs_avg_pct"], 1),
             "price_pts": round(best["price_vs_year_pct"] - naive["price_vs_year_pct"], 2),
         },
-        "method": ("Score = volume de transactions vs moyenne (proxy de l'offre) − 12 pts par événement de "
-                   "concurrence − 15 pts par période creuse" if intent == "louer" else
+        "method": ("Score = volume de transactions vs moyenne (proxy de l'offre) − 30 pts pendant le rush de la rentrée, "
+                   "− 12 pts par autre événement de concurrence, − 15 pts par période creuse" if intent == "louer" else
                    "Score = −10 × écart de prix au m² du mois de signature (compromis + 3 mois) + 0,3 × volume"),
         "season": season, "events": events,
     }
@@ -209,9 +277,10 @@ TOOL_SCHEMAS = {
         "input_schema": {"type": "object", "properties": {
             "intent": {"type": "string", "enum": ["louer", "acheter", "vendre"]},
             "typology": {"type": "string", "enum": ["studio_t1", "t2", "t3plus"]},
-            "zone": {"type": "string"}, "move_in": {"type": "string", "description": "YYYY-MM-DD"},
+            "zone": {"type": "string"},
+            "move_in": {"type": ["string", "null"], "description": "YYYY-MM-DD, null si pas de date (flexible)"},
             "today": {"type": "string", "description": "YYYY-MM-DD"}},
-            "required": ["intent", "typology", "zone", "move_in", "today"]},
+            "required": ["intent", "typology", "zone", "today"]},
     },
     "rank_neighbourhoods": {
         "description": "Classe les arrondissements par loyer estimé pour le budget, avec plafond d'encadrement "
@@ -232,7 +301,7 @@ TOOL_SCHEMAS = {
 
 TOOL_FUNCS = {
     "get_seasonality": lambda a: get_seasonality(a["zone"], a.get("typology")),
-    "compute_window": lambda a: compute_window(a["intent"], a["typology"], a["zone"], a["move_in"], a["today"]),
+    "compute_window": lambda a: compute_window(a["intent"], a["typology"], a["zone"], a.get("move_in"), a["today"]),
     "rank_neighbourhoods": lambda a: rank_neighbourhoods(a["typology"], a.get("budget"), a.get("zone", "75"),
                                                    a.get("intent", "louer")),
     "get_upcoming_events": lambda a: get_upcoming_events(a["start"], a["end"], a.get("scope", "75")),

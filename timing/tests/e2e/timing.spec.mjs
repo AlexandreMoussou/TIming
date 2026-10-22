@@ -30,7 +30,10 @@ test('location studio : fenêtre, calendrier, arrondissements, événements, tra
   const [ok, total] = g.match(/(\d+)\/(\d+)/).slice(1).map(Number);
   expect(total).toBeGreaterThan(0);
   expect(ok).toBe(total);
-  await expect(page.getByTestId('chart')).toBeVisible();
+  // frise lisible : un verdict en mots par mois, avec un seul « meilleur moment »
+  await expect(page.getByTestId('tl-month').first()).toBeVisible();
+  await expect(page.locator('.tm.best')).toHaveCount(1);
+  await expect(page.getByTestId('timeline')).toContainText('Emménagement');
   await expect(page.getByTestId('rank-card')).toHaveCount(12);
   await expect(page.getByTestId('ranking')).toContainText('dans le budget');
   await expect(page.getByTestId('events')).toContainText('Rush de la rentrée');
@@ -69,6 +72,17 @@ test('achat T2 dans le 11e : classement en prix de vente', async ({ page }) => {
   await expect(page.getByTestId('window')).toContainText(/compromis .* 20\d\d/);
   await expect(page.locator('#rank-sub')).toContainText('Prix estimé');
   await expect(page.getByTestId('rank-card').first()).toContainText('€/m²');
+});
+
+test("sans date d'emménagement : meilleur moment des 12 prochains mois", async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('mode-flex').click();
+  await expect(page.getByTestId('months')).toBeHidden();
+  await page.getByTestId('go').click();
+  await expect(page.getByTestId('window')).toContainText(/Cherche en .* 20\d\d/);
+  await expect(page.getByTestId('tl-month')).toHaveCount(12);
+  await expect(page.locator('.tm.best')).toHaveCount(1);
+  await expect(page.getByTestId('timeline')).not.toContainText('Emménagement');
 });
 
 test('la trace du run est persistée et relisible via l\'API', async ({ request }) => {
