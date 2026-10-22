@@ -148,6 +148,9 @@
   .trend { display: flex; gap: 12px; align-items: center; font-size: 15px; color: #424245; }
   .trend svg { flex: none; }
   .up { color: #b42318; font-weight: 700; } .down { color: var(--green); font-weight: 700; }
+  .fc { border-radius: 18px; padding: 14px 16px; font-size: 15px; line-height: 1.4; }
+  .fc b { display: block; font-size: 19px; letter-spacing: -0.01em; }
+  .fc.up { background: #fff1e6; color: #9a3412; } .fc.none { background: var(--soft); color: #424245; }
   .pass { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 16px; background: var(--soft); position: relative; }
   .pass::after { content: ""; position: absolute; right: 86px; top: 8px; bottom: 8px; border-left: 2px dashed #d2d2d7; }
   .pass img { width: 30px; height: 30px; object-fit: contain; }
@@ -428,7 +431,11 @@ function render(d) {
   const w = d.window, b = w.best, train = d.params.mode === "train";
   $("results").classList.remove("hidden");
   $("r-eyebrow").textContent = train ? `Paris → ${title(d.params.destination)}` : w.destination_name ? `Vol Paris → ${w.destination_name}` : d.params.destination === "international" ? "Vol vers l'étranger" : "Vol en France";
-  $("r-title").innerHTML = `Pars en <span class="grad">${MONTHS[b.month - 1]} ${b.year}</span>.`;
+  // Les vrais billets du jour priment sur la moyenne historique quand ils la contredisent
+  const realF = (d.fares || []).filter((f) => f.available && f.lowest_price);
+  const cheapest = realF.length === 2 ? realF.reduce((a, c) => (c.lowest_price < a.lowest_price ? c : a)) : null;
+  const headline = cheapest && !cheapest.is_best ? cheapest.month_label : `${MONTHS[b.month - 1]} ${b.year}`;
+  $("r-title").innerHTML = `Pars en <span class="grad">${esc(headline)}</span>.`;
   $("advice").textContent = d.advice;
   $("memory").textContent = d.memory ? "Je me souviens : " + d.memory : "";
   const g = d.grounding;
@@ -482,6 +489,7 @@ function render(d) {
         <div class="fhead"><b>${esc(f.month_label)}${f.is_best ? " · le meilleur" : ""}</b><span class="fine">vol du ${new Date(f.date).toLocaleDateString("fr-FR")}</span></div>
         <div><span class="fine">dès</span> <span class="fprice">${f.lowest_price} €</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">${f.price_level ? `<span class="lvl ${f.price_level}">${LV[f.price_level] || f.price_level}</span>` : ""}${f.typical_range ? `<span class="lvl" style="background:var(--soft);color:#424245">habituellement ${f.typical_range[0]}–${f.typical_range[1]} €</span>` : ""}</div>
+        ${f.forecast ? `<div class="fc ${f.forecast.direction}" data-testid="forecast"><b>${f.forecast.direction === "up" ? "▲ " : "● "}${esc(f.forecast.headline)}</b>${esc(f.forecast.why)}.${f.forecast.measured_precision_pct ? ` Dans nos tests sur de vrais historiques, ce signal s'est vérifié ${f.forecast.measured_precision_pct} % du temps à ${f.forecast.horizon_days} jours.` : ""}${f.forecast.notes.length ? " " + esc(f.forecast.notes.join(" · ")) + "." : ""}</div>` : ""}
         ${tr ? `<div class="trend">${spark(tr.points, dir === "up" ? "#ff453a" : dir === "down" ? "#30d158" : "#ff9f0a")}<span class="${dir}">${trendTxt}</span></div>` : ""}
         ${f.flights.slice(0, 3).map((x) => `<div class="pass" data-testid="ticket">${x.logo ? `<img src="${esc(x.logo)}" alt="">` : "<span>✈️</span>"}
           <div class="t"><b>${esc(x.airline)}</b><br>${esc(x.from)} ${time(x.departure)} → ${esc(x.to)} ${time(x.arrival)} · ${x.stops ? x.stops + " escale" + (x.stops > 1 ? "s" : "") : "direct"} · ${Math.floor(x.duration_min / 60)} h ${String(x.duration_min % 60).padStart(2, "0")}</div>
@@ -489,7 +497,7 @@ function render(d) {
         <a href="${esc(f.google_flights_url)}" target="_blank" rel="noopener">Voir ces billets sur Google Flights ›</a>
       </div>`;
     }).join("");
-    $("fares-src").textContent = `Source : ${fares[0].source}, relevé le ${fares[0].retrieved_at}${fares.some((f) => f.cache_hit) ? " (mis en cache 12 h dans Valkey)" : ""}. Le prix change à chaque instant ; l'évolution montre comment ce même billet a bougé ces dernières semaines.`;
+    $("fares-src").textContent = `Source : ${fares[0].source}, relevé le ${fares[0].retrieved_at}${fares.some((f) => f.cache_hit) ? " (mis en cache 12 h dans Valkey)" : ""}. Le prix change à chaque instant ; l'évolution montre comment ce même billet a bougé ces dernières semaines. Prévision à 14 jours : un seul signal, mesuré sur 22 historiques réels (voir benchmarks/price_forecast.json).`;
   }
   $("route-card").classList.toggle("hidden", !train);
   if (train && d.route) {

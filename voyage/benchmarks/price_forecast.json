@@ -1,0 +1,82 @@
+{
+  "routes": 22,
+  "tune_routes": [
+    "vg:fares:ATH:2027-08-15",
+    "vg:fares:CUN:2027-01-15",
+    "vg:fares:FCO:2027-04-15",
+    "vg:fares:HND:2027-03-15",
+    "vg:fares:HND:2027-08-15",
+    "vg:fares:JFK:2027-07-15",
+    "vg:fares:LIS:2027-02-15",
+    "vg:fares:NCE:2027-06-15",
+    "vg:fares:RAK:2027-03-15",
+    "vg:fares:RBA:2027-01-15",
+    "vg:fares:SIN:2027-03-15"
+  ],
+  "test_routes": [
+    "vg:fares:BKK:2027-02-15",
+    "vg:fares:DXB:2027-01-15",
+    "vg:fares:GRU:2027-02-15",
+    "vg:fares:HND:2027-06-15",
+    "vg:fares:IST:2027-04-15",
+    "vg:fares:LAX:2027-06-15",
+    "vg:fares:MAD:2027-05-15",
+    "vg:fares:PPT:2027-04-15",
+    "vg:fares:RBA:2026-11-15",
+    "vg:fares:RUN:2027-07-15",
+    "vg:fares:YUL:2027-05-15"
+  ],
+  "tune": {
+    "toujours stable": {
+      "cases": 193,
+      "accuracy_pct": 44.0,
+      "up_calls": 0,
+      "up_precision_pct": null,
+      "down_calls": 0,
+      "down_precision_pct": null
+    },
+    "tendance continue": {
+      "cases": 193,
+      "accuracy_pct": 43.0,
+      "up_calls": 45,
+      "up_precision_pct": 33.3,
+      "down_calls": 52,
+      "down_precision_pct": 17.3
+    },
+    "retour à la médiane": {
+      "cases": 193,
+      "accuracy_pct": 53.4,
+      "up_calls": 49,
+      "up_precision_pct": 65.3,
+      "down_calls": 20,
+      "down_precision_pct": 30.0
+    },
+    "prix au plus bas → hausse": {
+      "cases": 193,
+      "accuracy_pct": 45.6,
+      "up_calls": 55,
+      "up_precision_pct": 41.8,
+      "down_calls": 0,
+      "down_precision_pct": null
+    }
+  },
+  "chosen_on_tune": "retour à la médiane",
+  "test": {
+    "toujours stable": {
+      "cases": 198,
+      "accuracy_pct": 48.5,
+      "up_calls": 0,
+      "up_precision_pct": null,
+      "down_calls": 0,
+      "down_precision_pct": null
+    },
+    "retour à la médiane": {
+      "cases": 198,
+      "accuracy_pct": 50.5,
+      "up_calls": 39,
+      "up_precision_pct": 59.0,
+      "down_calls": 27,
+      "down_precision_pct": 3.7
+    }
+  }
+}

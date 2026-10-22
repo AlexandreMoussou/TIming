@@ -72,6 +72,9 @@ def get_real_fares(destination_iata, travel_date):
                     f"Vols de Paris vers {destination_iata} le {travel_date} aller simple")}
 
     out, hit = cached(f"vg:fares:{destination_iata}:{travel_date}", 43200, run)
+    if out.get("available") and out.get("trend"):
+        days = (date.fromisoformat(travel_date) - date.today()).days
+        out["forecast"] = forecast_from_history(out["trend"]["points"], out.get("price_level"), days)
     return {**out, "cache_hit": hit}
 
 
@@ -80,3 +83,35 @@ def fare_date(y, m, today):
     d = date(y, m, 15)
     t = date.fromisoformat(str(today))
     return max(d, date.fromordinal(t.toordinal() + 7)).isoformat()
+
+
+HORIZON = 14  # jours
+# Mesuré sur des historiques Google Flights réels, trajets de test non utilisés pour choisir la règle
+# (benchmarks/price_forecast.py) : un prix 5 % sous sa médiane de 30 jours remonte dans les 14 jours dans 59 % des cas.
+# Prévoir une baisse ne marche pas sur nos données (4 %) : on ne l'annonce jamais.
+RULE_UP_PRECISION_PCT = 59
+
+
+def forecast_from_history(points, price_level=None, days_to_departure=None):
+    """Va-t-il monter ? Signal unique, mesuré : prix nettement sous sa médiane des 30 derniers jours."""
+    if not points or len(points) < 31:
+        return None
+    window = points[-30:]
+    med = sorted(window)[len(window) // 2]
+    last = points[-1]
+    gap = round(100 * (last / med - 1), 1)
+    notes = []
+    if price_level == "low":
+        notes.append("Google classe aussi ce prix comme bas")
+    if days_to_departure is not None and days_to_departure <= 21:
+        notes.append(f"départ dans {days_to_departure} jours : les prix montent souvent à l'approche (règle générale, non mesurée ici)")
+    if last <= 0.95 * med:
+        return {"direction": "up", "horizon_days": HORIZON, "median_30d": med, "gap_pct": gap,
+                "measured_precision_pct": RULE_UP_PRECISION_PCT, "notes": notes,
+                "headline": "Devrait remonter : réserve maintenant",
+                "why": f"{last} € est {-gap:.0f} % sous sa médiane des 30 derniers jours ({med} €)"}
+    return {"direction": "none", "horizon_days": HORIZON, "median_30d": med, "gap_pct": gap,
+            "measured_precision_pct": None, "notes": notes,
+            "headline": "Pas de signal fiable",
+            "why": f"{last} € est proche ou au-dessus de sa médiane des 30 derniers jours ({med} €) ; "
+                   "nos tests montrent qu'on ne sait pas prévoir une baisse"}

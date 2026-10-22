@@ -64,6 +64,17 @@ test('vol Paris → New York : vrais billets Google Flights et tendance', async 
   expect(ok).toBe(total);
 });
 
+test('Singapour en mars : prévision « devrait remonter » sur un vrai billet', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('mode-avion').click();
+  await page.getByTestId('air-search').fill('Singapore (SIN)');
+  await page.getByTestId('month-5').click();
+  await page.getByTestId('go').click();
+  await expect(page.getByTestId('real-fares')).toBeVisible({ timeout: 90000 });
+  await expect(page.getByTestId('forecast').first()).toBeVisible();
+  await expect(page.getByTestId('real-fares')).toContainText('Devrait remonter');
+});
+
 test("recherche d'aéroport dans le monde entier", async ({ request }) => {
   const r = await (await request.get('/api/airports?q=bangkok')).json();
   expect(r.map((a) => a.iata)).toContain('BKK');

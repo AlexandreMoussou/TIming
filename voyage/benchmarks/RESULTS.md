@@ -17,3 +17,20 @@ prix, et ça marche 9 fois sur 10. En train, l'effet existe mais reste faible ; 
 
 Limites : l'indice Eurostat mesure le prix moyen des billets en France (national et international confondus pour
 l'avion), pas le prix d'un vol précis ; la date d'achat (anticipation) n'est pas couverte par les données ouvertes.
+
+# Va-t-il monter ou baisser ? Prévision à 14 jours sur de vrais billets
+
+`python -m benchmarks.price_forecast` · détail : `price_forecast.json`
+
+Données : 22 historiques de prix réels Google Flights (environ 60 jours chacun, via SerpApi) sur des trajets
+Paris → monde. Quatre règles ont été comparées ; la règle est **choisie sur 11 trajets** et **évaluée sur les 11
+autres**. Une variation de plus de 2 % en 14 jours compte comme une hausse ou une baisse.
+
+| Sur les trajets de test | Taux de bonnes prévisions | Quand la règle annonce une hausse |
+|---|---:|---:|
+| Toujours « stable » (référence) | 48,5 % | — |
+| Retour à la médiane de 30 jours | 50,5 % | **59,0 % de hausses réelles** (39 alertes) |
+
+Ce que Départ en fait : il n'affiche qu'un signal, « devrait remonter, réserve maintenant », quand le billet est
+au moins 5 % sous sa médiane des 30 derniers jours, avec son taux de réussite mesuré (59 %). Annoncer une baisse
+ne marche pas sur ces données (4 % de réussite) : Départ ne promet jamais qu'un prix va baisser.

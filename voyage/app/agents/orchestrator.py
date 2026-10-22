@@ -170,8 +170,20 @@ def advisor_template(p, a):
         s += ". Vrais billets aujourd'hui : " + ", ".join(
             f"dès {f['lowest_price']} € le {f['date'][8:10]}/{f['date'][5:7]}"
             + (f" ({lv[f['price_level']]} selon Google)" if f.get("price_level") in lv else "") for f in real)
+        if len(real) == 2:
+            cheaper = min(real, key=lambda f: f["lowest_price"])
+            if not cheaper["is_best"] and cheaper["lowest_price"] < max(f["lowest_price"] for f in real):
+                other = max(real, key=lambda f: f["lowest_price"])
+                s += (f". Mais aujourd'hui, le vrai billet de {cheaper['month_label']} ({cheaper['lowest_price']} €) est moins "
+                      f"cher que celui de {other['month_label']} ({other['lowest_price']} €) : les vrais prix priment, "
+                      f"prends {cheaper['month_label']}")
+        ups = [f for f in real if (f.get("forecast") or {}).get("direction") == "up"]
+        for f in ups:
+            fc = f["forecast"]
+            s += (f". Le billet du {f['date'][8:10]}/{f['date'][5:7]} devrait remonter : {fc['why']}, et dans nos tests "
+                  f"ce signal s'est vérifié {fc['measured_precision_pct']} % du temps, réserve-le maintenant")
         tr = real[0].get("trend")
-        if tr and abs(tr["change_pct"]) >= 1:
+        if not ups and tr and abs(tr["change_pct"]) >= 1:
             s += (f". Sur les {tr['days']} derniers jours, ce billet est passé de {tr['first']} € à {tr['last']} € "
                   f"({tr['change_pct']:+.0f} %)")
     if a.get("route") and a["route"]["fares"]:
@@ -193,6 +205,8 @@ def advisor_llm(run, p, a, c, memory):
                "real_fares": [{**{k: f.get(k) for k in ("month_label", "date", "lowest_price", "price_level",
                                                          "typical_range")},
                                "trend": f.get("trend") and {k: f["trend"][k] for k in ("days", "first", "last", "change_pct")},
+                               "forecast_14d": f.get("forecast") and {k: f["forecast"].get(k) for k in
+                                                                      ("direction", "headline", "why", "measured_precision_pct")},
                                "cheapest_flights": [{k: x[k] for k in ("airline", "price", "stops")}
                                                     for x in f.get("flights", [])[:3]]}
                               for f in a.get("fares", []) if f.get("available")],
@@ -202,8 +216,10 @@ def advisor_llm(run, p, a, c, memory):
         system=("Tu es l'advisor agent de Départ, qui dit quand partir pour payer moins cher en train ou en avion "
                 "depuis Paris. Français, tutoiement, 3 à 4 phrases courtes et simples : le meilleur mois et pourquoi, "
                 "ce que ça fait gagner par rapport au mois visé s'il y en a un, les vrais billets en avion (prix du jour, "
-                "verdict de Google, et si le prix monte ou descend sur les derniers jours), les prix SNCF en train, les "
-                "périodes à éviter. N'utilise QUE les chiffres fournis, arrondis à l'unité. Pas de jargon (ni 'indice', ni "
+                "verdict de Google, et si le prix monte ou descend sur les derniers jours), la prévision à 14 jours si elle "
+                "annonce une hausse ; si les vrais billets du jour contredisent la moyenne historique, les vrais billets "
+                "priment et tu le dis (avec son taux de réussite mesuré ; si direction = none, dis qu'on ne sait pas prévoir "
+                "une baisse, sans inventer), les prix SNCF en train, les périodes à éviter. N'utilise QUE les chiffres fournis, arrondis à l'unité. Pas de jargon (ni 'indice', ni "
                 "'HICP', ni 'score'), pas de markdown. Les écarts de prix sont des moyennes historiques, pas une "
                 "promesse : dis-le en quelques mots. Si une mémoire est fournie, fais-y référence."),
         messages=[{"role": "user", "content": json.dumps(payload, default=str, ensure_ascii=False)}])
