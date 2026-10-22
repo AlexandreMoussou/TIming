@@ -18,7 +18,7 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 class RecommendIn(BaseModel):
-    text: str
+    text: str | None = None
     handle: str | None = None
     today: str | None = None
     intent: str | None = None

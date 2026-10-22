@@ -1,256 +1,405 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Timing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --line: #e6e6e3;
-    --accent: #2f6f5e; --accent-soft: #e7f0ec; --warn: #a15c2f; --warn-soft: #f6ece4; --bar: #d9dedb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #141515; --card: #1c1d1d; --ink: #ececea; --muted: #9a9b98; --line: #2c2d2c;
-      --accent: #6fb39d; --accent-soft: #1f2d28; --warn: #d9a07a; --warn-soft: #2d241e; --bar: #3a3d3b;
-    }
+    --bg: #fff8f0; --card: #ffffff; --ink: #2b2240; --muted: #6f6684; --line: #f0e4d8;
+    --coral: #ff6b5b; --coral-soft: #ffe3df; --sun: #ffc145; --sun-soft: #fff1cf;
+    --teal: #1f9e8f; --teal-soft: #d8f3ef; --lav: #7b68d9; --lav-soft: #ebe7fb; --sky: #dff1ff; --bar: #f1e3d3;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 Inter, system-ui, sans-serif; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
-  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
-  h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0; }
-  h1 span { color: var(--accent); }
-  .tag { color: var(--muted); margin: 2px 0 0; }
-  .pill { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted);
-          border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--card); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
-  .grid { display: grid; gap: 16px; }
-  form .ask { width: 100%; font: inherit; font-size: 16px; padding: 14px 16px; border: 1px solid var(--line);
-              border-radius: 10px; background: var(--bg); color: var(--ink); }
-  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  select, input { width: 100%; font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
-                  background: var(--card); color: var(--ink); }
-  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg button { flex: 1; border: 0; background: var(--card); padding: 9px 2px; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; }
-  .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 12px; flex-wrap: wrap; }
-  .btn { border: 0; border-radius: 10px; padding: 11px 18px; font: inherit; font-weight: 600; cursor: pointer;
-         background: var(--accent); color: #fff; }
-  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); font-weight: 500; }
-  .btn:disabled { opacity: .55; cursor: wait; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 Nunito, system-ui, sans-serif; }
+  h1, h2, h3, .display { font-family: Fredoka, Nunito, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px 64px; }
+
+  /* En-tête illustré */
+  .hero { position: relative; overflow: hidden; background: linear-gradient(180deg, #dff1ff 0%, #fff1e3 100%);
+          border-radius: 0 0 36px 36px; padding: 28px 0 0; margin-bottom: -40px; }
+  .hero .wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: end; padding-bottom: 0; }
+  @media (max-width: 820px) { .hero .wrap { grid-template-columns: 1fr; } .hero svg.city { display: none; } }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: Fredoka; font-weight: 700; font-size: 28px; }
+  .brand .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--coral); display: grid; place-items: center; }
+  .hero h1 { font-size: 46px; line-height: 1.08; margin: 22px 0 10px; letter-spacing: -0.5px; }
+  @media (max-width: 520px) { .hero h1 { font-size: 34px; } }
+  .hero h1 em { font-style: normal; color: var(--coral); }
+  .hero h1 span { color: var(--teal); }
+  .hero p.lead { font-size: 18px; color: #4a4160; max-width: 520px; margin: 0 0 18px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 72px; }
+  .chip { background: #ffffffcc; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .status { position: absolute; top: 28px; right: 16px; }
+  @media (max-width: 520px) { .status { position: static; display: inline-block; margin: 12px 16px 0; } }
+  .city { width: 100%; height: auto; display: block; }
+
+  .card { background: var(--card); border-radius: 24px; padding: 24px; box-shadow: 0 8px 30px #2b22400d; border: 1px solid var(--line); }
+  form.card { position: relative; z-index: 2; }
+  .step-t { display: flex; align-items: center; gap: 10px; font-family: Fredoka; font-weight: 600; font-size: 18px; margin: 0 0 12px; flex-wrap: wrap; }
+  .num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: #fff; background: var(--coral); flex: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
+  .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .opt { cursor: pointer; border: 2px solid var(--line); border-radius: 18px; padding: 12px 6px 10px; text-align: center; color: var(--ink);
+         background: #fff; transition: transform .15s, border-color .15s, background .15s; font: inherit; font-weight: 700; }
+  .opt:hover { transform: translateY(-2px); }
+  .opt svg { width: 56px; height: 56px; display: block; margin: 0 auto 4px; }
+  .opt small { display: block; font-weight: 600; color: var(--muted); font-size: 12px; }
+  .opt.on { border-color: var(--coral); background: var(--coral-soft); }
+  .opts.t .opt.on { border-color: var(--teal); background: var(--teal-soft); }
+  .months { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .m { cursor: pointer; border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 7px 0; font: inherit; font-weight: 700; font-size: 14px; color: var(--ink); }
+  .m.on { background: var(--sun); border-color: var(--sun); }
+  .years { display: flex; gap: 6px; margin-bottom: 8px; }
+  .years .m { padding: 6px 14px; }
+  select, input { width: 100%; font: inherit; font-weight: 600; padding: 11px 12px; border: 2px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); }
+  .budget-v { font-family: Fredoka; font-size: 30px; font-weight: 600; color: var(--coral); }
+  input[type=range] { padding: 0; border: 0; accent-color: var(--coral); height: 28px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .go { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 22px;
+        padding-top: 18px; border-top: 2px dashed var(--line); }
+  .btn { border: 0; border-radius: 16px; padding: 14px 26px; font: inherit; font-family: Fredoka; font-size: 18px; font-weight: 600; cursor: pointer;
+         background: var(--coral); color: #fff; box-shadow: 0 6px 0 #d94c3d; transition: transform .1s, box-shadow .1s; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #d94c3d; }
+  .btn:disabled { opacity: .6; cursor: wait; }
+  .btn.soft { background: var(--teal-soft); color: var(--teal); box-shadow: none; font-size: 16px; padding: 11px 18px; }
   .hint { font-size: 13px; color: var(--muted); }
-  .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
-  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
-  .kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  .window { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 10px; color: var(--accent); }
-  .advice { margin: 0; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .stat { background: var(--bg); border-radius: 10px; padding: 12px; }
-  .stat b { display: block; font-size: 22px; letter-spacing: -0.01em; }
-  .stat span { font-size: 12px; color: var(--muted); }
-  .badge { display: inline-block; font-size: 12px; border-radius: 6px; padding: 2px 8px; background: var(--accent-soft); color: var(--accent); }
-  .badge.warn { background: var(--warn-soft); color: var(--warn); }
-  h2 { font-size: 16px; margin: 0 0 12px; }
-  .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
-  @media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 6px; border-bottom: 1px solid var(--line); }
-  td { padding: 8px 6px; border-bottom: 1px solid var(--line); }
-  tr.out td { color: var(--muted); }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .events { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow: auto; }
-  .events li { padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .events .d { font-size: 12px; color: var(--muted); }
-  .k { display: inline-block; font-size: 11px; border-radius: 4px; padding: 0 6px; margin-right: 6px; background: var(--bg); color: var(--muted); }
-  .trace { font-size: 13px; }
-  .step { display: grid; grid-template-columns: 34px 90px 1fr 70px; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); align-items: start; }
-  .step code { font-size: 12px; color: var(--muted); word-break: break-word; }
-  .ag { font-size: 12px; font-weight: 600; }
-  .chartbox { position: relative; height: 280px; }
-  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
-  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-  footer { margin-top: 28px; font-size: 12px; color: var(--muted); }
   .hidden { display: none !important; }
-  .prog { margin: 10px 0 0; padding-left: 20px; color: var(--muted); }
-  .prog li { padding: 4px 0; transition: color .3s; }
-  .prog li.on { color: var(--ink); }
-  .prog li.on::marker { color: var(--accent); }
-  .prog li.done { color: var(--accent); }
-  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .stack { display: grid; gap: 18px; margin-top: 22px; }
+
+  /* Chargement */
+  .loading { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: center; }
+  @media (max-width: 640px) { .loading { grid-template-columns: 1fr; } }
+  .truck { animation: drive 1.2s ease-in-out infinite alternate; }
+  @keyframes drive { from { transform: translateX(-6px); } to { transform: translateX(6px); } }
+  .prog { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .prog li { display: flex; gap: 10px; align-items: center; color: var(--muted); font-weight: 600; transition: color .3s; }
+  .prog li i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); flex: none; transition: background .3s; }
+  .prog li.on { color: var(--ink); } .prog li.on i { background: var(--sun); box-shadow: 0 0 0 4px var(--sun-soft); }
+  .prog li.done { color: var(--teal); } .prog li.done i { background: var(--teal); }
+
+  /* Résultat */
+  .answer { display: grid; grid-template-columns: 180px 1fr 290px; gap: 22px; align-items: center;
+            background: linear-gradient(135deg, #fff 0%, #fff6e6 100%); }
+  @media (max-width: 920px) { .answer { grid-template-columns: 1fr; } .answer .ill { display: none; } }
+  .kicker { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; font-weight: 800; color: var(--coral); }
+  .window { font-family: Fredoka; font-size: 34px; font-weight: 700; line-height: 1.1; margin: 4px 0 10px; }
+  .advice { margin: 0; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; background: var(--teal-soft); color: var(--teal); }
+  .badge.sun { background: var(--sun-soft); color: #8a5d00; } .badge.lav { background: var(--lav-soft); color: var(--lav); }
+  .badge.warn { background: var(--coral-soft); color: #c0392b; }
+  .stats { display: grid; gap: 10px; }
+  .stat { border-radius: 18px; padding: 12px 16px; }
+  .stat b { display: block; font-family: Fredoka; font-size: 28px; line-height: 1.1; }
+  .stat span { font-size: 13px; font-weight: 600; }
+  .stat.a { background: var(--teal-soft); color: #137a6e; } .stat.b { background: var(--sun-soft); color: #7a5200; } .stat.c { background: var(--lav-soft); color: #5b48c0; }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  h2 { font-size: 22px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .cal { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-bottom: 14px; }
+  @media (max-width: 640px) { .cal { grid-template-columns: repeat(6, 1fr); } }
+  .cal div { border-radius: 12px; padding: 8px 2px; text-align: center; font-weight: 800; font-size: 13px; background: var(--bar); color: var(--ink); }
+  .cal div small { display: block; font-weight: 700; font-size: 12px; }
+  .cal .best { background: var(--teal); color: #fff; transform: scale(1.06); box-shadow: 0 6px 16px #1f9e8f55; }
+  .cal .move { outline: 3px dashed var(--coral); outline-offset: -3px; }
+  .cal .hot { background: var(--coral-soft); } .cal .cold { background: #eef3f7; }
+  .chartbox { position: relative; height: 240px; }
+  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; font-weight: 600; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: -1px; }
+  .two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; }
+  @media (max-width: 920px) { .two { grid-template-columns: 1fr; } }
+  .rank { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .rc { border-radius: 18px; padding: 12px; border: 2px solid var(--line); background: #fff; }
+  .rc.fit { border-color: #b9e8e1; background: linear-gradient(180deg, #f2fbf9, #fff); }
+  .rc .arr { font-family: Fredoka; font-size: 26px; font-weight: 700; line-height: 1; }
+  .rc .cost { font-weight: 800; font-size: 18px; margin-top: 6px; }
+  .rc .meta { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .rc .tag { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: var(--teal); color: #fff; }
+  .rc .tag.no { background: var(--line); color: var(--muted); }
+  .events { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; max-height: 520px; overflow: auto; }
+  .events li { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: start; }
+  .events .em { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; background: var(--sun-soft); }
+  .events .em.election { background: var(--lav-soft); } .events .em.academic { background: var(--teal-soft); } .events .em.legal { background: #eef3f7; } .events .em.season { background: var(--coral-soft); }
+  .events b { display: block; font-size: 15px; }
+  .events .d { font-size: 13px; color: var(--muted); }
+  details summary { cursor: pointer; font-family: Fredoka; font-weight: 600; font-size: 18px; }
+  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
   @media (max-width: 760px) { .notes { grid-template-columns: 1fr; } }
-  .note { background: var(--bg); border-radius: 10px; padding: 12px; font-size: 13px; white-space: pre-line; }
-  details summary { cursor: pointer; font-weight: 600; }
-  .err { color: var(--warn); }
+  .note { background: var(--bg); border-radius: 16px; padding: 14px; font-size: 14px; white-space: pre-line; }
+  .trace { font-size: 13px; margin-top: 12px; }
+  .stp { display: grid; grid-template-columns: 34px 86px 1fr 64px; gap: 8px; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+  .stp code { font-size: 12px; color: var(--muted); word-break: break-word; }
+  .ag { font-weight: 800; font-size: 12px; }
+  footer { margin-top: 30px; font-size: 13px; color: var(--muted); text-align: center; }
+  .err { color: #c0392b; font-weight: 700; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
+<section class="hero">
+  <div class="wrap">
     <div>
-      <h1>Timing<span>.</span></h1>
-      <p class="tag">Quand et où chercher un logement à Paris pour avoir le plus de choix et payer le moins.</p>
+      <div class="brand"><span class="logo"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></span>Timing</div>
+      <h1>Trouve ton appart à Paris <em>au bon moment</em>, <span>au bon endroit</span>.</h1>
+      <p class="lead">Coche ce que tu cherches. Nos agents lisent 1,4 million de ventes réelles, les loyers de chaque arrondissement et le calendrier de la ville, puis te disent quand te lancer.</p>
+      <div class="chips"><span class="chip">🏠 DVF 2021 → 2026</span><span class="chip">💶 Loyers par arrondissement</span><span class="chip">📅 Rentrée, Parcoursup, élections…</span></div>
     </div>
-    <div class="pill" data-testid="status"><span class="dot"></span><span id="status">Connexion…</span></div>
-  </header>
+    <svg class="city" viewBox="0 0 560 300" aria-hidden="true">
+      <circle cx="470" cy="70" r="38" fill="#ffc145"/>
+      <g fill="#fff" opacity=".9"><ellipse cx="110" cy="70" rx="44" ry="16"/><ellipse cx="140" cy="60" rx="30" ry="16"/><ellipse cx="350" cy="40" rx="34" ry="12"/></g>
+      <g fill="none" stroke="#2b2240" stroke-width="4" stroke-linejoin="round">
+        <path d="M300 40 L286 150 L266 300 M300 40 L314 150 L334 300"/>
+        <path d="M282 150 H318 M276 210 H324 M290 110 H310"/>
+        <path d="M275 300 Q300 245 325 300"/>
+      </g>
+      <rect x="20" y="170" width="110" height="130" rx="6" fill="#ff6b5b"/>
+      <path d="M14 172 L75 140 L136 172 Z" fill="#2b2240"/>
+      <g fill="#fff8f0"><rect x="36" y="190" width="18" height="24" rx="4"/><rect x="66" y="190" width="18" height="24" rx="4"/><rect x="96" y="190" width="18" height="24" rx="4"/>
+      <rect x="36" y="230" width="18" height="24" rx="4"/><rect x="66" y="230" width="18" height="24" rx="4"/><rect x="96" y="230" width="18" height="24" rx="4"/></g>
+      <rect x="64" y="268" width="22" height="32" rx="4" fill="#2b2240"/>
+      <rect x="140" y="200" width="100" height="100" rx="6" fill="#7b68d9"/>
+      <path d="M134 202 L190 176 L246 202 Z" fill="#2b2240"/>
+      <g fill="#fff8f0"><rect x="154" y="220" width="16" height="22" rx="4"/><rect x="182" y="220" width="16" height="22" rx="4"/><rect x="210" y="220" width="16" height="22" rx="4"/>
+      <rect x="154" y="256" width="16" height="22" rx="4"/><rect x="210" y="256" width="16" height="22" rx="4"/></g>
+      <rect x="350" y="185" width="100" height="115" rx="6" fill="#1f9e8f"/>
+      <path d="M344 187 L400 160 L456 187 Z" fill="#2b2240"/>
+      <g fill="#fff8f0"><rect x="364" y="204" width="16" height="22" rx="4"/><rect x="392" y="204" width="16" height="22" rx="4"/><rect x="420" y="204" width="16" height="22" rx="4"/>
+      <rect x="364" y="242" width="16" height="22" rx="4"/><rect x="420" y="242" width="16" height="22" rx="4"/></g>
+      <rect x="392" y="262" width="18" height="38" rx="4" fill="#2b2240"/>
+      <rect x="460" y="215" width="90" height="85" rx="6" fill="#ffc145"/>
+      <path d="M454 217 L505 192 L556 217 Z" fill="#2b2240"/>
+      <g fill="#fff8f0"><rect x="476" y="234" width="16" height="20" rx="4"/><rect x="516" y="234" width="16" height="20" rx="4"/></g>
+      <rect x="240" y="262" width="40" height="38" rx="3" fill="#d9a26b"/><path d="M240 274 H280" stroke="#b07c48" stroke-width="3"/>
+      <rect x="248" y="234" width="28" height="28" rx="3" fill="#e8b886"/><path d="M262 234 V248" stroke="#b07c48" stroke-width="3"/>
+      <path d="M0 298 H560" stroke="#2b2240" stroke-width="4"/>
+    </svg>
+  </div>
+  <div class="status chip" data-testid="status"><span id="status">Connexion…</span></div>
+</section>
 
+<div class="wrap">
   <form id="f" class="card">
-    <input class="ask" id="text" data-testid="ask"
-           value="Je dois être installé à Paris en septembre 2027, studio, 900 €"
-           aria-label="Ta recherche en une phrase">
-    <div class="row">
-      <div><label>Je veux</label>
-        <div class="seg" id="intent">
-          <button type="button" data-v="louer" class="on">Louer</button>
-          <button type="button" data-v="acheter">Acheter</button>
-          <button type="button" data-v="vendre">Vendre</button>
-        </div></div>
-      <div><label for="typology">Type de bien</label>
-        <select id="typology" data-testid="typology"><option value="">Selon la phrase</option>
-          <option value="studio_t1">Studio / T1</option><option value="t2">T2</option><option value="t3plus">T3 et plus</option></select></div>
-      <div><label for="zone">Où</label><select id="zone" data-testid="zone"></select></div>
-      <div><label for="move_in">Emménagement</label><input type="month" id="move_in" data-testid="move-in"></div>
-      <div><label for="budget">Budget (€/mois)</label><input type="number" id="budget" min="0" step="10" placeholder="900"></div>
-      <div><label for="handle">Pseudo (mémoire)</label><input id="handle" data-testid="handle" placeholder="ex. alex"></div>
+    <div class="grid2">
+      <div>
+        <p class="step-t"><span class="num">1</span>Tu veux…</p>
+        <div class="opts" id="intent">
+          <button type="button" class="opt on" data-v="louer" data-testid="intent-louer"><svg viewBox="0 0 64 64"><circle cx="22" cy="32" r="12" fill="#ffc145"/><circle cx="22" cy="32" r="5" fill="#fff"/><path d="M33 32 H56 M48 32 V40 M54 32 V38" stroke="#2b2240" stroke-width="5" stroke-linecap="round"/></svg>Louer</button>
+          <button type="button" class="opt" data-v="acheter" data-testid="intent-acheter"><svg viewBox="0 0 64 64"><path d="M10 30 L32 12 L54 30 V54 H10 Z" fill="#ff6b5b"/><path d="M32 46 C24 40 22 36 25 33 C28 30 31 32 32 34 C33 32 36 30 39 33 C42 36 40 40 32 46 Z" fill="#fff"/></svg>Acheter</button>
+          <button type="button" class="opt" data-v="vendre" data-testid="intent-vendre"><svg viewBox="0 0 64 64"><path d="M30 10 H52 V32 L30 54 L10 34 Z" fill="#7b68d9"/><circle cx="43" cy="20" r="4" fill="#fff"/><path d="M24 34 H38" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg>Vendre</button>
+        </div>
+        <p class="step-t" style="margin-top:20px"><span class="num" style="background:var(--teal)">2</span>Quel logement ?</p>
+        <div class="opts t" id="typology">
+          <button type="button" class="opt on" data-v="studio_t1" data-testid="typo-studio_t1"><svg viewBox="0 0 64 64"><rect x="18" y="22" width="28" height="32" rx="4" fill="#1f9e8f"/><path d="M14 24 L32 10 L50 24 Z" fill="#2b2240"/><rect x="26" y="32" width="12" height="12" rx="3" fill="#fff8f0"/></svg>Studio / T1<small>≈ 22 m²</small></button>
+          <button type="button" class="opt" data-v="t2" data-testid="typo-t2"><svg viewBox="0 0 64 64"><rect x="10" y="24" width="44" height="30" rx="4" fill="#ffc145"/><path d="M6 26 L32 8 L58 26 Z" fill="#2b2240"/><rect x="17" y="32" width="11" height="11" rx="3" fill="#fff8f0"/><rect x="36" y="32" width="11" height="11" rx="3" fill="#fff8f0"/></svg>T2<small>≈ 40 m²</small></button>
+          <button type="button" class="opt" data-v="t3plus" data-testid="typo-t3plus"><svg viewBox="0 0 64 64"><rect x="8" y="18" width="48" height="38" rx="4" fill="#ff6b5b"/><path d="M4 20 L32 4 L60 20 Z" fill="#2b2240"/><g fill="#fff8f0"><rect x="14" y="25" width="9" height="9" rx="2"/><rect x="28" y="25" width="9" height="9" rx="2"/><rect x="42" y="25" width="9" height="9" rx="2"/><rect x="14" y="40" width="9" height="9" rx="2"/><rect x="42" y="40" width="9" height="9" rx="2"/></g><rect x="28" y="42" width="9" height="14" rx="2" fill="#2b2240"/></svg>T3 et +<small>≈ 62 m²</small></button>
+        </div>
+        <p class="step-t" style="margin-top:20px"><span class="num" style="background:var(--lav)">3</span>Où ?</p>
+        <select id="zone" data-testid="zone" aria-label="Arrondissement"></select>
+      </div>
+      <div>
+        <p class="step-t"><span class="num" style="background:var(--sun);color:var(--ink)">4</span>Tu dois être installé·e en…</p>
+        <div class="years" id="years"></div>
+        <div class="months" id="months" data-testid="months"></div>
+        <p class="step-t" style="margin-top:20px"><span class="num">5</span><span id="budget-l">Ton budget max par mois</span></p>
+        <div class="row"><span class="budget-v" id="budget-v" data-testid="budget-value">900 €</span>
+          <label class="hint" style="margin-left:auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="nobudget" style="width:auto"> pas de budget</label></div>
+        <input type="range" id="budget" data-testid="budget" min="400" max="3000" step="50" value="900" aria-label="Budget">
+        <p class="step-t" style="margin-top:20px"><span class="num" style="background:var(--teal)">6</span>Ton pseudo <span class="hint" style="font-family:Nunito;font-weight:600">pour que je me souvienne de toi</span></p>
+        <input id="handle" data-testid="handle" placeholder="ex. lea_clermont" autocomplete="off" aria-label="Pseudo">
+      </div>
     </div>
-    <div class="actions">
-      <span class="hint" id="hint">Les champs remplis priment sur la phrase.</span>
-      <button class="btn" id="go" data-testid="go">Trouver le bon moment</button>
+    <div class="go">
+      <span class="hint" id="hint">Les chiffres viennent de données publiques réelles, jamais d'une invention de l'IA.</span>
+      <button class="btn" id="go" data-testid="go">Trouver le bon moment ✨</button>
     </div>
   </form>
 
-  <section id="progress" class="card hidden" style="margin-top:16px" data-testid="progress">
-    <div class="kicker">Les agents travaillent</div>
-    <ol class="prog" id="prog">
-      <li data-a="intake"><b>Intake</b> comprend ta demande et relit ta mémoire (Postgres)</li>
-      <li data-a="analyst"><b>Analyst</b> interroge 1,4 M de ventes DVF et les loyers (ClickHouse, cache Valkey)</li>
-      <li data-a="events"><b>Events</b> lit le calendrier : rentrée, Parcoursup, élections, trêve hivernale…</li>
-      <li data-a="advisor"><b>Advisor</b> rédige le conseil et vérifie chaque chiffre</li>
-    </ol>
+  <section id="progress" class="card hidden" data-testid="progress" style="margin-top:22px">
+    <div class="loading">
+      <svg class="truck" viewBox="0 0 220 120" aria-hidden="true">
+        <rect x="10" y="30" width="120" height="60" rx="8" fill="#ff6b5b"/>
+        <path d="M130 50 H170 L195 72 V90 H130 Z" fill="#ffc145"/><rect x="142" y="56" width="22" height="16" rx="3" fill="#dff1ff"/>
+        <rect x="30" y="44" width="22" height="20" rx="3" fill="#e8b886"/><rect x="58" y="40" width="26" height="24" rx="3" fill="#d9a26b"/><rect x="90" y="46" width="20" height="18" rx="3" fill="#e8b886"/>
+        <circle cx="48" cy="94" r="13" fill="#2b2240"/><circle cx="48" cy="94" r="5" fill="#fff"/><circle cx="165" cy="94" r="13" fill="#2b2240"/><circle cx="165" cy="94" r="5" fill="#fff"/>
+        <path d="M0 108 H220" stroke="#f0e4d8" stroke-width="4" stroke-dasharray="14 10"/>
+      </svg>
+      <div>
+        <div class="kicker">Les agents travaillent</div>
+        <ol class="prog" id="prog" style="margin-top:8px">
+          <li><i></i>Intake vérifie ta demande et relit ton profil (Postgres)</li>
+          <li><i></i>Analyst fouille 1,4 M de ventes et les loyers (ClickHouse + cache Valkey)</li>
+          <li><i></i>Events vérifie le calendrier : rentrée, Parcoursup, élections, trêve…</li>
+          <li><i></i>Advisor rédige ton conseil et vérifie chaque chiffre</li>
+        </ol>
+      </div>
+    </div>
   </section>
 
-  <div id="results" class="grid hidden" style="margin-top:16px">
-    <section class="card hero" data-testid="hero">
+  <div id="results" class="stack hidden">
+    <section class="card answer" data-testid="hero">
+      <svg class="ill" viewBox="0 0 200 200" aria-hidden="true">
+        <rect x="20" y="36" width="160" height="140" rx="18" fill="#fff" stroke="#2b2240" stroke-width="5"/>
+        <rect x="20" y="36" width="160" height="38" rx="18" fill="#ff6b5b"/><rect x="22" y="58" width="156" height="16" fill="#ff6b5b"/>
+        <rect x="56" y="22" width="10" height="28" rx="5" fill="#2b2240"/><rect x="134" y="22" width="10" height="28" rx="5" fill="#2b2240"/>
+        <g fill="#f1e3d3"><rect x="38" y="90" width="26" height="22" rx="6"/><rect x="72" y="90" width="26" height="22" rx="6"/><rect x="136" y="90" width="26" height="22" rx="6"/>
+        <rect x="38" y="122" width="26" height="22" rx="6"/><rect x="72" y="122" width="26" height="22" rx="6"/><rect x="104" y="122" width="26" height="22" rx="6"/><rect x="136" y="122" width="26" height="22" rx="6"/></g>
+        <rect x="104" y="90" width="26" height="22" rx="6" fill="#1f9e8f"/><path d="M110 101 l5 5 l9 -10" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="160" cy="160" r="26" fill="#ffc145"/><path d="M150 160 l7 7 l13 -14" stroke="#2b2240" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <div>
-        <div class="kicker">Fenêtre recommandée</div>
+        <div class="kicker">Ton bon moment</div>
         <div class="window" id="window" data-testid="window"></div>
         <p class="advice" id="advice" data-testid="advice"></p>
-        <p class="hint" id="memory"></p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-          <span class="badge" id="grounding" data-testid="grounding"></span>
-          <span class="badge" id="mode"></span>
-          <span class="badge" id="latency"></span>
-        </div>
+        <p class="hint" id="memory" data-testid="memory" style="margin:8px 0 0"></p>
+        <div class="badges"><span class="badge" id="grounding" data-testid="grounding"></span><span class="badge lav" id="mode"></span><span class="badge sun" id="latency"></span></div>
       </div>
-      <div>
-        <div class="stats">
-          <div class="stat"><b id="s-vol"></b><span>volume vs moyenne annuelle</span></div>
-          <div class="stat"><b id="s-naive"></b><span id="s-naive-l">vs mois de l'emménagement</span></div>
-          <div class="stat"><b id="s-price"></b><span>prix au m² vs médiane de l'année</span></div>
+      <div class="stats">
+        <div class="stat a"><b id="s-vol"></b><span>de logements qui changent de main vs la moyenne</span></div>
+        <div class="stat b"><b id="s-naive"></b><span id="s-naive-l"></span></div>
+        <div class="stat c"><b id="s-price"></b><span>prix au m² vs la médiane de l'année</span></div>
+        <div class="acts">
+          <button class="btn soft" id="alert" data-testid="alert" type="button">🔔 Préviens-moi</button>
+          <button class="btn soft" id="up" type="button" aria-label="Utile">👍</button>
+          <button class="btn soft" id="down" type="button" aria-label="Pas utile">👎</button>
         </div>
-        <div class="actions" style="justify-content:flex-start">
-          <button class="btn ghost" id="alert" data-testid="alert" type="button">Préviens-moi quand ça commence</button>
-          <button class="btn ghost" id="up" type="button" aria-label="Utile">👍</button>
-          <button class="btn ghost" id="down" type="button" aria-label="Pas utile">👎</button>
-        </div>
-        <p class="hint" id="alert-msg" data-testid="alert-msg"></p>
+        <p class="hint" id="alert-msg" data-testid="alert-msg" style="margin:0"></p>
       </div>
     </section>
 
     <section class="card">
-      <h2>Le marché mois par mois</h2>
+      <h2>📈 Ton année, mois par mois</h2>
+      <p class="sub">En vert, le mois où te lancer ; en pointillé, ton emménagement. Données réelles 2021-2025.</p>
+      <div class="cal" id="cal"></div>
       <div class="chartbox"><canvas id="chart" data-testid="chart"></canvas></div>
       <div class="legend">
-        <span><i class="sw" style="background:var(--bar)"></i>Volume de ventes vs moyenne (proxy de l'offre)</span>
-        <span><i class="sw" style="background:var(--accent)"></i>Mois recommandé</span>
-        <span><i class="sw" style="background:var(--warn)"></i>Prix au m² vs médiane de l'année</span>
+        <span><i class="sw" style="background:var(--bar)"></i>Logements qui changent de main vs moyenne (proxy de l'offre)</span>
+        <span><i class="sw" style="background:var(--teal)"></i>Mois recommandé</span>
+        <span><i class="sw" style="background:var(--coral)"></i>Prix au m² vs médiane de l'année</span>
       </div>
       <p class="hint" id="season-src"></p>
     </section>
 
     <div class="two">
       <section class="card">
-        <h2>Arrondissements pour ton budget</h2>
-        <table data-testid="ranking"><thead><tr><th>Arrondissement</th><th class="num" id="th-cost">Loyer estimé</th>
-          <th class="num" id="th-cap">Plafond encadré</th><th>Mois les plus actifs</th></tr></thead><tbody id="rank"></tbody></table>
+        <h2>📍 Où ton budget passe</h2>
+        <p class="sub" id="rank-sub"></p>
+        <div class="rank" id="rank" data-testid="ranking"></div>
         <p class="hint" id="rank-src"></p>
       </section>
       <section class="card">
-        <h2>Ce qui va jouer sur ta période</h2>
+        <h2>🗓️ Ce qui va jouer</h2>
+        <p class="sub">Les événements entre maintenant et ton emménagement.</p>
         <ul class="events" id="events" data-testid="events"></ul>
       </section>
     </div>
 
     <section class="card">
       <details id="trace-box" data-testid="trace">
-        <summary>Voir le raisonnement des agents <span class="hint" id="trace-n"></span></summary>
+        <summary>🧠 Voir le raisonnement des agents <span class="hint" id="trace-n"></span></summary>
         <div class="notes" id="notes"></div>
-        <div class="trace" id="trace" style="margin-top:12px"></div>
+        <div class="trace" id="trace"></div>
       </details>
     </section>
   </div>
 
-  <footer id="foot">Sources : DVF (DGFiP, Etalab), carte des loyers (ministère de la Transition écologique), encadrement
-    des loyers (Ville de Paris). Le volume de ventes DVF sert de proxy de l'offre de logements ; les loyers mensuels sont
-    estimés sur une surface type. Indications, pas des garanties.</footer>
+  <footer id="foot">Sources : DVF (DGFiP, Etalab), carte des loyers (ministère de la Transition écologique), encadrement des loyers (Ville de Paris).
+    Le volume de ventes DVF sert de proxy de l'offre ; les loyers mensuels sont estimés sur une surface type. Des repères, pas des garanties.</footer>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
-const AGENT_COLOR = { intake: "#6b7fd7", analyst: "#2f6f5e", events: "#a15c2f", advisor: "#8a5fb0", memory: "#7a7a7a" };
-let intent = "louer", chart, last;
+const MONTHS_LONG = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const AGENT_COLOR = { intake: "#7b68d9", analyst: "#1f9e8f", events: "#b07a00", advisor: "#e0503f", memory: "#6f6684" };
+const EVENT_EMOJI = { academic: "🎓", election: "🗳️", legal: "⚖️", season: "☀️", sport: "🏅", culture: "🎭" };
+const now = new Date();
+const state = { intent: "louer", typology: "studio_t1", year: now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear(), month: 9 };
+let chart, last;
 
+// Formulaire
 const zone = $("zone");
-zone.add(new Option("Tout Paris (conseille-moi)", "75"));
+zone.add(new Option("✨ Tout Paris, conseille-moi", "75"));
 for (let i = 1; i <= 20; i++) zone.add(new Option(`Paris ${i}${i === 1 ? "er" : "e"}`, `751${String(i).padStart(2, "0")}`));
+for (const y of [now.getFullYear(), now.getFullYear() + 1, now.getFullYear() + 2]) {
+  const b = Object.assign(document.createElement("button"), { type: "button", className: "m", textContent: y });
+  b.dataset.y = y; b.setAttribute("data-testid", `year-${y}`);
+  b.onclick = () => { state.year = y; if (y === now.getFullYear() && state.month <= now.getMonth()) state.month = now.getMonth() + 1; paintDate(); };
+  $("years").append(b);
+}
+MONTHS.forEach((m, i) => {
+  const b = Object.assign(document.createElement("button"), { type: "button", className: "m", textContent: m });
+  b.setAttribute("data-testid", `month-${i + 1}`);
+  b.onclick = () => { state.month = i + 1; paintDate(); };
+  $("months").append(b);
+});
+function paintDate() {
+  document.querySelectorAll("#years .m").forEach((b) => b.classList.toggle("on", +b.dataset.y === state.year));
+  document.querySelectorAll("#months .m").forEach((b, i) => {
+    b.classList.toggle("on", i + 1 === state.month);
+    b.disabled = state.year === now.getFullYear() && i < now.getMonth();
+    b.style.opacity = b.disabled ? .35 : 1;
+  });
+}
+paintDate();
+function pick(groupId, key) {
+  document.querySelectorAll(`#${groupId} .opt`).forEach((b) => b.onclick = () => {
+    document.querySelectorAll(`#${groupId} .opt`).forEach((x) => x.classList.remove("on"));
+    b.classList.add("on"); state[key] = b.dataset.v;
+    if (key === "intent") setBudgetScale();
+  });
+}
+pick("intent", "intent"); pick("typology", "typology");
+function setBudgetScale() {
+  const r = $("budget"), rent = state.intent === "louer";
+  $("budget-l").textContent = rent ? "Ton budget max par mois" : state.intent === "acheter" ? "Ton budget max (prix d'achat)" : "Ton prix de vente visé";
+  if (rent) Object.assign(r, { min: 400, max: 3000, step: 50 }); else Object.assign(r, { min: 100000, max: 1500000, step: 10000 });
+  r.value = rent ? 900 : 400000;
+  paintBudget();
+}
+function paintBudget() {
+  $("budget-v").textContent = $("nobudget").checked ? "—" : (+$("budget").value).toLocaleString("fr-FR") + " €";
+  $("budget").disabled = $("nobudget").checked;
+}
+$("budget").oninput = paintBudget; $("nobudget").onchange = paintBudget;
 try { $("handle").value = localStorage.getItem("timing.handle") || ""; } catch (e) {}
 
-document.querySelectorAll("#intent button").forEach((b) => b.onclick = () => {
-  document.querySelectorAll("#intent button").forEach((x) => x.classList.remove("on"));
-  b.classList.add("on"); intent = b.dataset.v;
-  $("budget").placeholder = intent === "louer" ? "900" : "350000";
-  document.querySelector('label[for="budget"]').textContent = intent === "louer" ? "Budget (€/mois)" : "Budget (€)";
-});
-
 fetch("/api/health").then((r) => r.json()).then((h) => {
-  $("status").textContent = `${h.mode === "llm" ? "Agents Claude" : "Mode sans LLM"} · ClickHouse ${h.clickhouse} · Postgres ${h.postgres} · Valkey ${h.valkey}`;
+  $("status").textContent = `${h.mode === "llm" ? "🤖 Agents Claude" : "Mode sans LLM"} · ${h.ok ? "données en ligne" : "données indisponibles"}`;
 }).catch(() => $("status").textContent = "API injoignable");
 fetch("/api/stats").then((r) => r.json()).then((s) => {
-  $("foot").insertAdjacentHTML("afterbegin", `<b>${(+s.dvf_rows).toLocaleString("fr-FR")}</b> lignes DVF, ${(+s.sales).toLocaleString("fr-FR")} ventes nettoyées (jusqu'au ${new Date(s.last_sale).toLocaleDateString("fr-FR")}), ${(+s.rent_rows).toLocaleString("fr-FR")} indicateurs de loyer, ${s.events} événements. `);
+  $("foot").insertAdjacentHTML("afterbegin", `<b>${(+s.dvf_rows).toLocaleString("fr-FR")}</b> lignes DVF, ${(+s.sales).toLocaleString("fr-FR")} ventes nettoyées (jusqu'au ${new Date(s.last_sale).toLocaleDateString("fr-FR")}), ${(+s.rent_rows).toLocaleString("fr-FR")} indicateurs de loyer, ${s.events} événements.<br>`);
 }).catch(() => {});
 
 $("f").onsubmit = async (ev) => {
   ev.preventDefault();
   const go = $("go"); go.disabled = true; go.textContent = "Les agents travaillent…";
-  $("progress").classList.remove("hidden");
+  $("results").classList.add("hidden"); $("progress").classList.remove("hidden");
+  $("progress").scrollIntoView({ behavior: "smooth", block: "center" });
   const items = [...document.querySelectorAll("#prog li")];
   items.forEach((li) => li.className = "");
-  const plan = [[0, [0]], [2500, [1, 2]], [9000, [3]]];
+  const plan = [[0, [0]], [900, [1, 2]], [7000, [3]]];
   const timers = plan.map(([t, idx]) => setTimeout(() => {
     items.forEach((li, i) => { if (li.classList.contains("on") && !idx.includes(i)) li.className = "done"; });
     idx.forEach((i) => items[i].className = "on");
   }, t));
   const handle = $("handle").value.trim();
   try { localStorage.setItem("timing.handle", handle); } catch (e) {}
-  const body = { text: $("text").value, handle: handle || null, intent,
-    typology: $("typology").value || null, zone: zone.value === "75" ? null : zone.value,
-    move_in: $("move_in").value ? $("move_in").value + "-01" : null,
-    budget: $("budget").value ? +$("budget").value : null };
+  const body = { handle: handle || null, intent: state.intent, typology: state.typology, zone: zone.value,
+    move_in: `${state.year}-${String(state.month).padStart(2, "0")}-01`,
+    budget: $("nobudget").checked ? null : +$("budget").value };
   try {
     const r = await fetch("/api/recommend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(await r.text());
     render(await r.json());
+    $("hint").textContent = "Les chiffres viennent de données publiques réelles, jamais d'une invention de l'IA.";
   } catch (e) {
-    $("hint").innerHTML = `<span class="err">Erreur : ${e.message.slice(0, 200)}</span>`;
+    $("hint").innerHTML = `<span class="err">Oups : ${esc(e.message.slice(0, 200))}</span>`;
   } finally {
     timers.forEach(clearTimeout); $("progress").classList.add("hidden");
-    go.disabled = false; go.textContent = "Trouver le bon moment";
+    go.disabled = false; go.textContent = "Trouver le bon moment ✨";
   }
 };
 
@@ -263,91 +412,91 @@ function render(d) {
   $("results").classList.remove("hidden");
   const w = d.window;
   if (w.too_late) {
-    $("window").textContent = "Maintenant";
+    $("window").textContent = "Lance-toi maintenant !";
   } else {
-    const s = new Date(w.start), e = new Date(w.end);
-    $("window").textContent = `du ${s.getDate()} au ${e.getDate()} ${e.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
+    const e = new Date(w.end);
+    $("window").textContent = `${d.params.intent === "louer" ? "Cherche" : d.params.intent === "acheter" ? "Signe ton compromis" : "Mets en vente"} en ${MONTHS_LONG[e.getMonth()]} ${e.getFullYear()}`;
     $("s-vol").textContent = pct(w.best.volume_vs_avg_pct);
     $("s-naive").textContent = (w.gain_vs_naive.volume_pts > 0 ? "+" : "") + w.gain_vs_naive.volume_pts.toFixed(0) + " pts";
-    $("s-naive-l").textContent = `de volume vs ${w.naive.label.split(" (")[0]}`;
+    $("s-naive-l").textContent = `de volume vs ${w.naive.label.split(" (")[0]}, ton mois d'emménagement`;
     $("s-price").textContent = pct(w.best.price_vs_year_pct, 1);
   }
   $("advice").textContent = d.advice;
-  $("memory").textContent = d.memory ? "Mémoire : " + d.memory : "";
+  $("memory").textContent = d.memory ? "💭 Je me souviens : " + d.memory : "";
   const g = d.grounding;
-  $("grounding").textContent = `${g.grounded}/${g.numbers} chiffres retrouvés dans les données`;
+  $("grounding").textContent = `✓ ${g.grounded}/${g.numbers} chiffres retrouvés dans les données`;
   $("grounding").className = "badge" + (g.ungrounded.length ? " warn" : "");
-  $("mode").textContent = d.mode === "llm" ? "Agents Claude" : "Mode sans LLM";
-  $("latency").textContent = `${(d.latency_ms / 1000).toFixed(1).replace(".", ",")} s · ${d.usage.llm_calls} appels Claude · ${d.usage.tool_calls} requêtes de données`;
+  $("mode").textContent = d.mode === "llm" ? "🤖 Agents Claude" : "Mode sans LLM";
+  $("latency").textContent = `⏱ ${(d.latency_ms / 1000).toFixed(1).replace(".", ",")} s · ${d.usage.llm_calls} appels Claude · ${d.usage.tool_calls} requêtes`;
   $("alert-msg").textContent = "";
 
-  // Graphique
+  // Calendrier et graphique
   const months = w.season.months, best = w.too_late ? null : w.best.month;
   const moveM = new Date(d.params.move_in).getMonth() + 1;
-  const css = getComputedStyle(document.documentElement);
-  const accent = css.getPropertyValue("--accent").trim(), bar = css.getPropertyValue("--bar").trim(), warn = css.getPropertyValue("--warn").trim(), muted = css.getPropertyValue("--muted").trim(), line = css.getPropertyValue("--line").trim();
+  $("cal").innerHTML = months.map((m) => {
+    const cls = [m.month === best ? "best" : m.volume_vs_avg_pct > 10 ? "hot" : m.volume_vs_avg_pct < -10 ? "cold" : "", m.month === moveM ? "move" : ""].join(" ");
+    return `<div class="${cls}">${MONTHS[m.month - 1]}<small>${pct(m.volume_vs_avg_pct)}</small></div>`;
+  }).join("");
   if (chart) chart.destroy();
   chart = new Chart($("chart"), {
-    data: { labels: months.map((m) => MONTHS[m.month - 1] + (m.month === moveM ? " ⌂" : "")),
+    data: { labels: months.map((m) => MONTHS[m.month - 1]),
       datasets: [
         { type: "bar", label: "Volume vs moyenne (%)", data: months.map((m) => m.volume_vs_avg_pct),
-          backgroundColor: months.map((m) => m.month === best ? accent : bar), borderRadius: 4, yAxisID: "y" },
+          backgroundColor: months.map((m) => m.month === best ? "#1f9e8f" : "#f1e3d3"), borderRadius: 8, yAxisID: "y" },
         { type: "line", label: "Prix au m² vs médiane (%)", data: months.map((m) => m.price_vs_year_pct),
-          borderColor: warn, backgroundColor: warn, pointRadius: 3, tension: .3, yAxisID: "y2" } ] },
+          borderColor: "#ff6b5b", backgroundColor: "#ff6b5b", pointRadius: 4, tension: .35, yAxisID: "y2" } ] },
     options: { maintainAspectRatio: false, plugins: { legend: { display: false },
         tooltip: { callbacks: { afterBody: (it) => { const m = months[it[0].dataIndex]; return `${m.sales} ventes · médiane ${m.median_prix_m2.toLocaleString("fr-FR")} €/m²`; } } } },
-      scales: { x: { grid: { display: false }, ticks: { color: muted } },
-        y: { grid: { color: line }, ticks: { color: muted, callback: (v) => v + " %" }, title: { display: true, text: "volume", color: muted } },
-        y2: { position: "right", grid: { display: false }, ticks: { color: warn, callback: (v) => v + " %" }, title: { display: true, text: "prix", color: warn } } } } });
-  $("season-src").textContent = `${w.season.source}${w.season.cache_hit ? " · servi depuis le cache Valkey" : ""}. ⌂ = mois d'emménagement. Méthode : ${w.method || ""}.`;
+      scales: { x: { grid: { display: false }, ticks: { color: "#6f6684", font: { family: "Nunito", weight: 700 } } },
+        y: { grid: { color: "#f0e4d8" }, ticks: { color: "#6f6684", callback: (v) => v + " %" } },
+        y2: { position: "right", grid: { display: false }, ticks: { color: "#e0503f", callback: (v) => v + " %" } } } } });
+  $("season-src").textContent = `${w.season.source}${w.season.cache_hit ? " · servi par le cache Valkey" : ""}. Méthode : ${w.method || ""}.`;
 
-  // Classement
+  // Arrondissements
   const rent = d.params.intent === "louer";
-  $("th-cost").textContent = rent ? "Loyer estimé" : "Prix estimé";
-  $("th-cap").textContent = rent ? "Plafond encadré" : "Prix au m² (12 mois)";
-  $("rank").innerHTML = d.ranking.ranking.slice(0, 10).map((r) => `<tr class="${r.fits_budget ? "" : "out"}">
-    <td>${esc(shortName(r.nom))}${r.fits_budget && d.params.budget ? ' <span class="badge">dans le budget</span>' : ""}</td>
-    <td class="num">${r.cost != null ? r.cost.toLocaleString("fr-FR") + " €" : "–"}</td>
-    <td class="num">${rent ? (r.plafond_mensuel_estime ? r.plafond_mensuel_estime + " €" : "–") : (r.prix_m2_12m ? r.prix_m2_12m.toLocaleString("fr-FR") + " €" : "–")}</td>
-    <td>${r.peak_months.join(", ")}</td></tr>`).join("");
+  $("rank-sub").textContent = rent ? "Loyer estimé par mois, du moins cher au plus cher." : "Prix estimé, du moins cher au plus cher.";
+  $("rank").innerHTML = d.ranking.ranking.slice(0, 12).map((r) => `<div class="rc ${r.fits_budget && d.params.budget ? "fit" : ""}" data-testid="rank-card">
+      <div class="arr">${esc(shortName(r.nom))}</div>
+      <div class="cost">${r.cost != null ? r.cost.toLocaleString("fr-FR") + " €" : "–"}${rent ? "<span class='meta'> /mois</span>" : ""}</div>
+      <div class="meta">${rent ? (r.plafond_mensuel_estime ? `plafond encadré ${r.plafond_mensuel_estime} €` : "") : (r.prix_m2_12m ? `${r.prix_m2_12m.toLocaleString("fr-FR")} €/m²` : "")}</div>
+      <div class="meta">actif en ${r.peak_months.join(" et ")}</div>
+      ${d.params.budget && d.params.intent !== "vendre" ? `<span class="tag ${r.fits_budget ? "" : "no"}">${r.fits_budget ? "dans le budget" : "hors budget"}</span>` : ""}
+    </div>`).join("");
   const s0 = d.ranking.ranking[0];
   $("rank-src").textContent = !s0 ? "" : !rent ? `Prix médian au m² DVF des 12 derniers mois × ${s0.surface_hypothese_m2} m² (surface type).` : `Loyer d'annonce ${s0.millesime} hors charges × ${s0.surface_hypothese_m2} m² (surface type). Plafond : loyer majoré de l'encadrement, non meublé.`;
 
   // Événements
-  // événements autour de la fenêtre (un mois avant) jusqu'à l'emménagement, plus les élections
   const from = w.too_late ? new Date(0) : new Date(new Date(w.start).getTime() - 31 * 864e5);
   const ev = d.events.filter((e) => !/^Publication IRL/.test(e.name) && (new Date(e.end_date) >= from || e.kind === "election"));
-  $("events").innerHTML = ev.map((e) => `<li><span class="k">${esc(e.kind)}</span>${esc(e.name)}
-    <div class="d">${new Date(e.start_date).toLocaleDateString("fr-FR")} → ${new Date(e.end_date).toLocaleDateString("fr-FR")} · ${esc(e.expected_effect)}${/confirmer/.test(e.source) ? ' · <b>à confirmer</b>' : ""}</div></li>`).join("");
+  $("events").innerHTML = ev.map((e) => `<li><span class="em ${esc(e.kind)}">${EVENT_EMOJI[e.kind] || "📌"}</span>
+    <div><b>${esc(e.name)}</b><div class="d">${new Date(e.start_date).toLocaleDateString("fr-FR")} → ${new Date(e.end_date).toLocaleDateString("fr-FR")} · ${esc(e.expected_effect)}${/confirmer/.test(e.source) ? " · <b style='display:inline;color:#c0392b'>à confirmer</b>" : ""}</div></div></li>`).join("");
 
-  // Notes des agents
+  // Raisonnement
   $("notes").innerHTML = [["Analyst", d.notes.analyst], ["Events", d.notes.events]].filter(([, t]) => t)
-    .map(([a, t]) => `<div class="note"><b>Note de l'agent ${a}</b>
-${esc(t)}</div>`).join("");
-  // Trace
+    .map(([a, t]) => `<div class="note"><b>Note de l'agent ${a}</b>\n${esc(t)}</div>`).join("");
   $("trace-n").textContent = `(${d.trace.length} étapes, run ${d.run_id.slice(0, 8)})`;
   $("trace").innerHTML = d.trace.map((s) => {
     const detail = s.kind === "tool_call" ? JSON.stringify(s.input) : s.output ? JSON.stringify(s.output).slice(0, 220) : "";
-    return `<div class="step" data-testid="trace-step"><span class="hint">#${s.step}</span>
+    return `<div class="stp" data-testid="trace-step"><span class="hint">#${s.step}</span>
       <span class="ag" style="color:${AGENT_COLOR[s.agent] || "inherit"}">${esc(s.agent)}</span>
       <div><b>${esc(s.kind)}</b> ${esc(s.tool || "")}<br><code>${esc(detail)}</code></div>
-      <span class="hint num">${s.duration_ms != null ? s.duration_ms + " ms" : ""}</span></div>`;
+      <span class="hint">${s.duration_ms != null ? s.duration_ms + " ms" : ""}</span></div>`;
   }).join("");
   $("results").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 $("alert").onclick = async () => {
   const handle = $("handle").value.trim();
-  if (!handle) { $("alert-msg").textContent = "Indique un pseudo pour que je m'en souvienne."; $("handle").focus(); return; }
+  if (!handle) { $("alert-msg").textContent = "Indique un pseudo (étape 6) pour que je m'en souvienne."; $("handle").focus(); return; }
   const r = await fetch("/api/alerts", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ handle, recommendation_id: last.recommendation_id }) });
   const a = await r.json();
-  $("alert-msg").textContent = r.ok ? `C'est noté, ${handle} : alerte enregistrée pour le ${new Date(a.alert.window_start).toLocaleDateString("fr-FR")}.` : "Erreur";
+  $("alert-msg").textContent = r.ok ? `🔔 C'est noté, ${handle} : alerte enregistrée pour le ${new Date(a.alert.window_start).toLocaleDateString("fr-FR")}.` : "Erreur";
 };
 for (const [id, up] of [["up", true], ["down", false]]) $(id).onclick = async () => {
   await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ recommendation_id: last.recommendation_id, thumbs_up: up }) });
-  $("alert-msg").textContent = "Merci, ton avis sert au réglage des prochaines recommandations.";
+  $("alert-msg").textContent = "Merci ! Ton avis sert à régler les prochaines recommandations.";
 };
 </script>
 </body>

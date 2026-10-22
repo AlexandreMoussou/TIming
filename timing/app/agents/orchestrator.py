@@ -283,7 +283,15 @@ def get_user(handle):
     return u["id"], u["profile"] or {}
 
 
-def recommend(text, handle=None, today=None, overrides=None):
+def describe(p):
+    """Résumé lisible d'une recherche faite par formulaire (sert de libellé en mémoire)."""
+    y, m = int(p["move_in"][:4]), int(p["move_in"][5:7])
+    zone = "tout Paris" if p["zone"] == "75" else f"Paris {int(p['zone'][3:])}e"
+    budget = f", {p['budget']} €" if p.get("budget") else ""
+    return f"{p['intent']} un {TYPO_LABEL[p['typology']]}, {zone}, {MONTHS_FR[m - 1]} {y}{budget}"
+
+
+def recommend(text=None, handle=None, today=None, overrides=None):
     run = Run()
     today = today or date.today().isoformat()
     t0 = time.time()
@@ -296,12 +304,16 @@ def recommend(text, handle=None, today=None, overrides=None):
         run.log("memory", "tool_result", "postgres.searches", {"user": handle},
                 {"profile": profile, "past": [x["query_text"] for x in past]})
     mode = "llm" if llm() else "rules"
-    p = intake_llm(run, text, profile, today) if mode == "llm" else intake_rules(text, profile)
-    if mode == "rules":
-        run.log("intake", "rules", "parse", {"text": text}, p)
-    p.update({k: v for k, v in (overrides or {}).items() if v not in (None, "")})
+    fields = {k: v for k, v in (overrides or {}).items() if v not in (None, "")}
+    if text and mode == "llm":  # question libre (API, benchmark) : l'intake agent l'interprète
+        p = intake_llm(run, text, profile, today)
+    else:  # formulaire : champs cochés, complétés par la mémoire de l'utilisateur
+        p = intake_rules(text or "", profile)
+        run.log("intake", "form", "validate", {"fields": fields, "memory": profile}, p)
+    p.update(fields)
     if not p.get("move_in"):
         p["move_in"] = date(date.fromisoformat(today).year + 1, 9, 1).isoformat()
+    text = text or describe(p)
     with ThreadPoolExecutor(2) as ex:  # analyst et events en parallèle
         fa = ex.submit(analyst, run, p, today)
         fe = ex.submit(events_agent, run, p, today)
