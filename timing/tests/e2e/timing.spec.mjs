@@ -59,7 +59,7 @@ test('achat T2 dans le 11e : classement en prix de vente', async ({ page }) => {
   await page.getByTestId('typology').selectOption('t2');
   await page.locator('#budget').fill('450000');
   await page.getByTestId('go').click();
-  await expect(page.getByTestId('advice')).toContainText('compromis');
+  await expect(page.getByTestId('window')).toContainText(/2027/);
   await expect(page.locator('#th-cost')).toHaveText('Prix estimé');
 });
 
