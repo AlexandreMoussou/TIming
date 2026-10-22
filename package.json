@@ -1,0 +1,26 @@
+{
+  "name": "rebalance",
+  "version": "1.0.0",
+  "description": "Agent de régulation Vélib : prévoit les stations vides/pleines 30 min avant et planifie les camions",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.mjs",
+    "collect": "node scripts/collect.mjs",
+    "benchmark": "node scripts/benchmark.mjs",
+    "fixture": "node scripts/make-fixture.mjs",
+    "test": "node --test tests/unit/",
+    "test:e2e": "playwright test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
+    "@electric-sql/pglite": "^0.5.11",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}
