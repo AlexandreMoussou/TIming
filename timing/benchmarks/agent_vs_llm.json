@@ -1,0 +1,25 @@
+{
+  "questions": 20,
+  "model": "claude-sonnet-5-5",
+  "claude_alone": {
+    "numbers_cited": 314,
+    "numbers_found_in_data": 223,
+    "grounded_pct": 71.0,
+    "answers_fully_grounded": 0,
+    "median_latency_s": 6.8,
+    "mean_tokens": 831
+  },
+  "timing": {
+    "numbers_cited": 257,
+    "numbers_found_in_data": 254,
+    "grounded_pct": 98.8,
+    "answers_fully_grounded": 17,
+    "median_latency_s": 14.0,
+    "mean_tokens": 13638
+  },
+  "timing_mean_llm_calls": 5.0,
+  "timing_mean_tool_calls": 4.2,
+  "timing_modes": [
+    "llm"
+  ]
+}

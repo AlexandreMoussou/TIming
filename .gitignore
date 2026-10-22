@@ -4,3 +4,7 @@ data/snapshots/
 data/pglite/
 test-results/
 playwright-report/
+timing/data/raw/
+__pycache__/
+*.pyc
+timing/test-results/

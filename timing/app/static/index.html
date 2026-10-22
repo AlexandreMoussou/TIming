@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1f; --muted: #6e6e73; --line: #e6e6e3;
+    --accent: #2f6f5e; --accent-soft: #e7f0ec; --warn: #a15c2f; --warn-soft: #f6ece4; --bar: #d9dedb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141515; --card: #1c1d1d; --ink: #ececea; --muted: #9a9b98; --line: #2c2d2c;
+      --accent: #6fb39d; --accent-soft: #1f2d28; --warn: #d9a07a; --warn-soft: #2d241e; --bar: #3a3d3b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 Inter, system-ui, sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0; }
+  h1 span { color: var(--accent); }
+  .tag { color: var(--muted); margin: 2px 0 0; }
+  .pill { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted);
+          border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--card); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .grid { display: grid; gap: 16px; }
+  form .ask { width: 100%; font: inherit; font-size: 16px; padding: 14px 16px; border: 1px solid var(--line);
+              border-radius: 10px; background: var(--bg); color: var(--ink); }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  select, input { width: 100%; font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+                  background: var(--card); color: var(--ink); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { flex: 1; border: 0; background: var(--card); padding: 9px 2px; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 12px; flex-wrap: wrap; }
+  .btn { border: 0; border-radius: 10px; padding: 11px 18px; font: inherit; font-weight: 600; cursor: pointer;
+         background: var(--accent); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); font-weight: 500; }
+  .btn:disabled { opacity: .55; cursor: wait; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+  .kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .window { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 10px; color: var(--accent); }
+  .advice { margin: 0; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--bg); border-radius: 10px; padding: 12px; }
+  .stat b { display: block; font-size: 22px; letter-spacing: -0.01em; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; font-size: 12px; border-radius: 6px; padding: 2px 8px; background: var(--accent-soft); color: var(--accent); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 6px; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  tr.out td { color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .events { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow: auto; }
+  .events li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .events .d { font-size: 12px; color: var(--muted); }
+  .k { display: inline-block; font-size: 11px; border-radius: 4px; padding: 0 6px; margin-right: 6px; background: var(--bg); color: var(--muted); }
+  .trace { font-size: 13px; }
+  .step { display: grid; grid-template-columns: 34px 90px 1fr 70px; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); align-items: start; }
+  .step code { font-size: 12px; color: var(--muted); word-break: break-word; }
+  .ag { font-size: 12px; font-weight: 600; }
+  .chartbox { position: relative; height: 280px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  footer { margin-top: 28px; font-size: 12px; color: var(--muted); }
+  .hidden { display: none !important; }
+  .prog { margin: 10px 0 0; padding-left: 20px; color: var(--muted); }
+  .prog li { padding: 4px 0; transition: color .3s; }
+  .prog li.on { color: var(--ink); }
+  .prog li.on::marker { color: var(--accent); }
+  .prog li.done { color: var(--accent); }
+  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 760px) { .notes { grid-template-columns: 1fr; } }
+  .note { background: var(--bg); border-radius: 10px; padding: 12px; font-size: 13px; white-space: pre-line; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .err { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Timing<span>.</span></h1>
+      <p class="tag">Quand et où chercher un logement à Paris pour avoir le plus de choix et payer le moins.</p>
+    </div>
+    <div class="pill" data-testid="status"><span class="dot"></span><span id="status">Connexion…</span></div>
+  </header>
+
+  <form id="f" class="card">
+    <input class="ask" id="text" data-testid="ask"
+           value="Je dois être installé à Paris en septembre 2027, studio, 900 €"
+           aria-label="Ta recherche en une phrase">
+    <div class="row">
+      <div><label>Je veux</label>
+        <div class="seg" id="intent">
+          <button type="button" data-v="louer" class="on">Louer</button>
+          <button type="button" data-v="acheter">Acheter</button>
+          <button type="button" data-v="vendre">Vendre</button>
+        </div></div>
+      <div><label for="typology">Type de bien</label>
+        <select id="typology" data-testid="typology"><option value="">Selon la phrase</option>
+          <option value="studio_t1">Studio / T1</option><option value="t2">T2</option><option value="t3plus">T3 et plus</option></select></div>
+      <div><label for="zone">Où</label><select id="zone" data-testid="zone"></select></div>
+      <div><label for="move_in">Emménagement</label><input type="month" id="move_in" data-testid="move-in"></div>
+      <div><label for="budget">Budget (€/mois)</label><input type="number" id="budget" min="0" step="10" placeholder="900"></div>
+      <div><label for="handle">Pseudo (mémoire)</label><input id="handle" data-testid="handle" placeholder="ex. alex"></div>
+    </div>
+    <div class="actions">
+      <span class="hint" id="hint">Les champs remplis priment sur la phrase.</span>
+      <button class="btn" id="go" data-testid="go">Trouver le bon moment</button>
+    </div>
+  </form>
+
+  <section id="progress" class="card hidden" style="margin-top:16px" data-testid="progress">
+    <div class="kicker">Les agents travaillent</div>
+    <ol class="prog" id="prog">
+      <li data-a="intake"><b>Intake</b> comprend ta demande et relit ta mémoire (Postgres)</li>
+      <li data-a="analyst"><b>Analyst</b> interroge 1,4 M de ventes DVF et les loyers (ClickHouse, cache Valkey)</li>
+      <li data-a="events"><b>Events</b> lit le calendrier : rentrée, Parcoursup, élections, trêve hivernale…</li>
+      <li data-a="advisor"><b>Advisor</b> rédige le conseil et vérifie chaque chiffre</li>
+    </ol>
+  </section>
+
+  <div id="results" class="grid hidden" style="margin-top:16px">
+    <section class="card hero" data-testid="hero">
+      <div>
+        <div class="kicker">Fenêtre recommandée</div>
+        <div class="window" id="window" data-testid="window"></div>
+        <p class="advice" id="advice" data-testid="advice"></p>
+        <p class="hint" id="memory"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <span class="badge" id="grounding" data-testid="grounding"></span>
+          <span class="badge" id="mode"></span>
+          <span class="badge" id="latency"></span>
+        </div>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><b id="s-vol"></b><span>volume vs moyenne annuelle</span></div>
+          <div class="stat"><b id="s-naive"></b><span id="s-naive-l">vs mois de l'emménagement</span></div>
+          <div class="stat"><b id="s-price"></b><span>prix au m² vs médiane de l'année</span></div>
+        </div>
+        <div class="actions" style="justify-content:flex-start">
+          <button class="btn ghost" id="alert" data-testid="alert" type="button">Préviens-moi quand ça commence</button>
+          <button class="btn ghost" id="up" type="button" aria-label="Utile">👍</button>
+          <button class="btn ghost" id="down" type="button" aria-label="Pas utile">👎</button>
+        </div>
+        <p class="hint" id="alert-msg" data-testid="alert-msg"></p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Le marché mois par mois</h2>
+      <div class="chartbox"><canvas id="chart" data-testid="chart"></canvas></div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--bar)"></i>Volume de ventes vs moyenne (proxy de l'offre)</span>
+        <span><i class="sw" style="background:var(--accent)"></i>Mois recommandé</span>
+        <span><i class="sw" style="background:var(--warn)"></i>Prix au m² vs médiane de l'année</span>
+      </div>
+      <p class="hint" id="season-src"></p>
+    </section>
+
+    <div class="two">
+      <section class="card">
+        <h2>Arrondissements pour ton budget</h2>
+        <table data-testid="ranking"><thead><tr><th>Arrondissement</th><th class="num" id="th-cost">Loyer estimé</th>
+          <th class="num" id="th-cap">Plafond encadré</th><th>Mois les plus actifs</th></tr></thead><tbody id="rank"></tbody></table>
+        <p class="hint" id="rank-src"></p>
+      </section>
+      <section class="card">
+        <h2>Ce qui va jouer sur ta période</h2>
+        <ul class="events" id="events" data-testid="events"></ul>
+      </section>
+    </div>
+
+    <section class="card">
+      <details id="trace-box" data-testid="trace">
+        <summary>Voir le raisonnement des agents <span class="hint" id="trace-n"></span></summary>
+        <div class="notes" id="notes"></div>
+        <div class="trace" id="trace" style="margin-top:12px"></div>
+      </details>
+    </section>
+  </div>
+
+  <footer id="foot">Sources : DVF (DGFiP, Etalab), carte des loyers (ministère de la Transition écologique), encadrement
+    des loyers (Ville de Paris). Le volume de ventes DVF sert de proxy de l'offre de logements ; les loyers mensuels sont
+    estimés sur une surface type. Indications, pas des garanties.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+const AGENT_COLOR = { intake: "#6b7fd7", analyst: "#2f6f5e", events: "#a15c2f", advisor: "#8a5fb0", memory: "#7a7a7a" };
+let intent = "louer", chart, last;
+
+const zone = $("zone");
+zone.add(new Option("Tout Paris (conseille-moi)", "75"));
+for (let i = 1; i <= 20; i++) zone.add(new Option(`Paris ${i}${i === 1 ? "er" : "e"}`, `751${String(i).padStart(2, "0")}`));
+try { $("handle").value = localStorage.getItem("timing.handle") || ""; } catch (e) {}
+
+document.querySelectorAll("#intent button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("#intent button").forEach((x) => x.classList.remove("on"));
+  b.classList.add("on"); intent = b.dataset.v;
+  $("budget").placeholder = intent === "louer" ? "900" : "350000";
+  document.querySelector('label[for="budget"]').textContent = intent === "louer" ? "Budget (€/mois)" : "Budget (€)";
+});
+
+fetch("/api/health").then((r) => r.json()).then((h) => {
+  $("status").textContent = `${h.mode === "llm" ? "Agents Claude" : "Mode sans LLM"} · ClickHouse ${h.clickhouse} · Postgres ${h.postgres} · Valkey ${h.valkey}`;
+}).catch(() => $("status").textContent = "API injoignable");
+fetch("/api/stats").then((r) => r.json()).then((s) => {
+  $("foot").insertAdjacentHTML("afterbegin", `<b>${(+s.dvf_rows).toLocaleString("fr-FR")}</b> lignes DVF, ${(+s.sales).toLocaleString("fr-FR")} ventes nettoyées (jusqu'au ${new Date(s.last_sale).toLocaleDateString("fr-FR")}), ${(+s.rent_rows).toLocaleString("fr-FR")} indicateurs de loyer, ${s.events} événements. `);
+}).catch(() => {});
+
+$("f").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const go = $("go"); go.disabled = true; go.textContent = "Les agents travaillent…";
+  $("progress").classList.remove("hidden");
+  const items = [...document.querySelectorAll("#prog li")];
+  items.forEach((li) => li.className = "");
+  const plan = [[0, [0]], [2500, [1, 2]], [9000, [3]]];
+  const timers = plan.map(([t, idx]) => setTimeout(() => {
+    items.forEach((li, i) => { if (li.classList.contains("on") && !idx.includes(i)) li.className = "done"; });
+    idx.forEach((i) => items[i].className = "on");
+  }, t));
+  const handle = $("handle").value.trim();
+  try { localStorage.setItem("timing.handle", handle); } catch (e) {}
+  const body = { text: $("text").value, handle: handle || null, intent,
+    typology: $("typology").value || null, zone: zone.value === "75" ? null : zone.value,
+    move_in: $("move_in").value ? $("move_in").value + "-01" : null,
+    budget: $("budget").value ? +$("budget").value : null };
+  try {
+    const r = await fetch("/api/recommend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(await r.text());
+    render(await r.json());
+  } catch (e) {
+    $("hint").innerHTML = `<span class="err">Erreur : ${e.message.slice(0, 200)}</span>`;
+  } finally {
+    timers.forEach(clearTimeout); $("progress").classList.add("hidden");
+    go.disabled = false; go.textContent = "Trouver le bon moment";
+  }
+};
+
+const pct = (v, d = 0) => (v > 0 ? "+" : "") + v.toFixed(d).replace(".", ",") + " %";
+const shortName = (n) => n.replace("Paris ", "").replace(" Arrondissement", "");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function render(d) {
+  last = d;
+  $("results").classList.remove("hidden");
+  const w = d.window;
+  if (w.too_late) {
+    $("window").textContent = "Maintenant";
+  } else {
+    const s = new Date(w.start), e = new Date(w.end);
+    $("window").textContent = `du ${s.getDate()} au ${e.getDate()} ${e.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
+    $("s-vol").textContent = pct(w.best.volume_vs_avg_pct);
+    $("s-naive").textContent = (w.gain_vs_naive.volume_pts > 0 ? "+" : "") + w.gain_vs_naive.volume_pts.toFixed(0) + " pts";
+    $("s-naive-l").textContent = `de volume vs ${w.naive.label.split(" (")[0]}`;
+    $("s-price").textContent = pct(w.best.price_vs_year_pct, 1);
+  }
+  $("advice").textContent = d.advice;
+  $("memory").textContent = d.memory ? "Mémoire : " + d.memory : "";
+  const g = d.grounding;
+  $("grounding").textContent = `${g.grounded}/${g.numbers} chiffres retrouvés dans les données`;
+  $("grounding").className = "badge" + (g.ungrounded.length ? " warn" : "");
+  $("mode").textContent = d.mode === "llm" ? "Agents Claude" : "Mode sans LLM";
+  $("latency").textContent = `${(d.latency_ms / 1000).toFixed(1).replace(".", ",")} s · ${d.usage.llm_calls} appels Claude · ${d.usage.tool_calls} requêtes de données`;
+  $("alert-msg").textContent = "";
+
+  // Graphique
+  const months = w.season.months, best = w.too_late ? null : w.best.month;
+  const moveM = new Date(d.params.move_in).getMonth() + 1;
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue("--accent").trim(), bar = css.getPropertyValue("--bar").trim(), warn = css.getPropertyValue("--warn").trim(), muted = css.getPropertyValue("--muted").trim(), line = css.getPropertyValue("--line").trim();
+  if (chart) chart.destroy();
+  chart = new Chart($("chart"), {
+    data: { labels: months.map((m) => MONTHS[m.month - 1] + (m.month === moveM ? " ⌂" : "")),
+      datasets: [
+        { type: "bar", label: "Volume vs moyenne (%)", data: months.map((m) => m.volume_vs_avg_pct),
+          backgroundColor: months.map((m) => m.month === best ? accent : bar), borderRadius: 4, yAxisID: "y" },
+        { type: "line", label: "Prix au m² vs médiane (%)", data: months.map((m) => m.price_vs_year_pct),
+          borderColor: warn, backgroundColor: warn, pointRadius: 3, tension: .3, yAxisID: "y2" } ] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false },
+        tooltip: { callbacks: { afterBody: (it) => { const m = months[it[0].dataIndex]; return `${m.sales} ventes · médiane ${m.median_prix_m2.toLocaleString("fr-FR")} €/m²`; } } } },
+      scales: { x: { grid: { display: false }, ticks: { color: muted } },
+        y: { grid: { color: line }, ticks: { color: muted, callback: (v) => v + " %" }, title: { display: true, text: "volume", color: muted } },
+        y2: { position: "right", grid: { display: false }, ticks: { color: warn, callback: (v) => v + " %" }, title: { display: true, text: "prix", color: warn } } } } });
+  $("season-src").textContent = `${w.season.source}${w.season.cache_hit ? " · servi depuis le cache Valkey" : ""}. ⌂ = mois d'emménagement. Méthode : ${w.method || ""}.`;
+
+  // Classement
+  const rent = d.params.intent === "louer";
+  $("th-cost").textContent = rent ? "Loyer estimé" : "Prix estimé";
+  $("th-cap").textContent = rent ? "Plafond encadré" : "Prix au m² (12 mois)";
+  $("rank").innerHTML = d.ranking.ranking.slice(0, 10).map((r) => `<tr class="${r.fits_budget ? "" : "out"}">
+    <td>${esc(shortName(r.nom))}${r.fits_budget && d.params.budget ? ' <span class="badge">dans le budget</span>' : ""}</td>
+    <td class="num">${r.cost != null ? r.cost.toLocaleString("fr-FR") + " €" : "–"}</td>
+    <td class="num">${rent ? (r.plafond_mensuel_estime ? r.plafond_mensuel_estime + " €" : "–") : (r.prix_m2_12m ? r.prix_m2_12m.toLocaleString("fr-FR") + " €" : "–")}</td>
+    <td>${r.peak_months.join(", ")}</td></tr>`).join("");
+  const s0 = d.ranking.ranking[0];
+  $("rank-src").textContent = !s0 ? "" : !rent ? `Prix médian au m² DVF des 12 derniers mois × ${s0.surface_hypothese_m2} m² (surface type).` : `Loyer d'annonce ${s0.millesime} hors charges × ${s0.surface_hypothese_m2} m² (surface type). Plafond : loyer majoré de l'encadrement, non meublé.`;
+
+  // Événements
+  // événements autour de la fenêtre (un mois avant) jusqu'à l'emménagement, plus les élections
+  const from = w.too_late ? new Date(0) : new Date(new Date(w.start).getTime() - 31 * 864e5);
+  const ev = d.events.filter((e) => !/^Publication IRL/.test(e.name) && (new Date(e.end_date) >= from || e.kind === "election"));
+  $("events").innerHTML = ev.map((e) => `<li><span class="k">${esc(e.kind)}</span>${esc(e.name)}
+    <div class="d">${new Date(e.start_date).toLocaleDateString("fr-FR")} → ${new Date(e.end_date).toLocaleDateString("fr-FR")} · ${esc(e.expected_effect)}${/confirmer/.test(e.source) ? ' · <b>à confirmer</b>' : ""}</div></li>`).join("");
+
+  // Notes des agents
+  $("notes").innerHTML = [["Analyst", d.notes.analyst], ["Events", d.notes.events]].filter(([, t]) => t)
+    .map(([a, t]) => `<div class="note"><b>Note de l'agent ${a}</b>
+${esc(t)}</div>`).join("");
+  // Trace
+  $("trace-n").textContent = `(${d.trace.length} étapes, run ${d.run_id.slice(0, 8)})`;
+  $("trace").innerHTML = d.trace.map((s) => {
+    const detail = s.kind === "tool_call" ? JSON.stringify(s.input) : s.output ? JSON.stringify(s.output).slice(0, 220) : "";
+    return `<div class="step" data-testid="trace-step"><span class="hint">#${s.step}</span>
+      <span class="ag" style="color:${AGENT_COLOR[s.agent] || "inherit"}">${esc(s.agent)}</span>
+      <div><b>${esc(s.kind)}</b> ${esc(s.tool || "")}<br><code>${esc(detail)}</code></div>
+      <span class="hint num">${s.duration_ms != null ? s.duration_ms + " ms" : ""}</span></div>`;
+  }).join("");
+  $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+$("alert").onclick = async () => {
+  const handle = $("handle").value.trim();
+  if (!handle) { $("alert-msg").textContent = "Indique un pseudo pour que je m'en souvienne."; $("handle").focus(); return; }
+  const r = await fetch("/api/alerts", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ handle, recommendation_id: last.recommendation_id }) });
+  const a = await r.json();
+  $("alert-msg").textContent = r.ok ? `C'est noté, ${handle} : alerte enregistrée pour le ${new Date(a.alert.window_start).toLocaleDateString("fr-FR")}.` : "Erreur";
+};
+for (const [id, up] of [["up", true], ["down", false]]) $(id).onclick = async () => {
+  await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recommendation_id: last.recommendation_id, thumbs_up: up }) });
+  $("alert-msg").textContent = "Merci, ton avis sert au réglage des prochaines recommandations.";
+};
+</script>
+</body>
+</html>

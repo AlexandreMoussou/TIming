@@ -1,0 +1,86 @@
+TIMING — THE DATA LAYER IN ACTION
+==================================
+
+Timing tells students and young workers WHEN and WHERE to look for a flat in Paris. Every recommendation is
+computed from queries on real open data held in Aiven, and every number in the answer is checked against
+the query outputs before it is shown.
+
+1. SOURCES (all open data, no scraping)
+---------------------------------------
+- DVF, Demandes de valeurs foncieres (DGFiP / Etalab), 2021 to first half of 2026, Paris + Hauts-de-Seine,
+  Seine-Saint-Denis, Val-de-Marne: 1,399,813 raw rows -> 407,113 cleaned single-dwelling sales
+  (145,000+ in Paris). 2021-2025 from geo-DVF; first half of 2026 converted from the raw DGFiP file published
+  12/10/2026 (data/convert_raw_dvf.py).
+- Carte des loyers (French ministry for ecological transition, ad-based rent indicators), vintages 2022-2025, every
+  commune in France, 4 segments (flats, 1-2 rooms, 3+ rooms, houses): 559,240 rows.
+- Encadrement des loyers, Ville de Paris (rent caps by quarter, rooms, building era, furnished): 2019-2025,
+  17,920 rows, 80 quarters.
+- Events calendar: 195 events 2021-2027 in 26 types (academic: Parcoursup, Mon Master, grandes ecoles results,
+  start of the academic year, internships; legal: winter eviction truce, rent cap revision, IRL publication,
+  property tax; seasons: summer slump, holidays, notaries' December rush; elections; Paris 2024 Olympics; Fashion
+  Weeks, Roland-Garros...). Dates that are not yet official are flagged "a confirmer".
+
+2. WHERE EACH PIECE LIVES, AND WHY
+----------------------------------
+ClickHouse (Aiven, timing-ch), analytical scans over millions of rows:
+  dvf_transactions   raw DVF rows, partitioned by year, ordered by (department, commune, date)
+  dvf_sales          one row per sale of exactly one dwelling, price/m2 and typology (studio_t1, t2, t3plus)
+  rent_indicators    rent per m2 by commune, segment and vintage
+  rent_caps_paris    Paris rent caps by quarter
+PostgreSQL (Aiven, timing-pg), transactional memory of the product:
+  users (profile JSONB: last typology, budget, zone, move-in date, alert), searches, recommendations (full
+  payload), feedback (thumbs up/down), events, agent_runs (every LLM call and tool call: agent, input, output,
+  duration)
+Valkey (Aiven, timing-valkey), cache:
+  seasonality curves and rent levels per (zone, typology), TTL 24 h; the UI says when a curve came from cache.
+Runtime: the FastAPI app runs on Aiven Runtime in the same project (Containerfile in timing/).
+
+3. WHAT EACH AGENT DOES WITH THE DATA
+-------------------------------------
+Orchestrator: intake -> (analyst || events in parallel) -> advisor; each step is logged in agent_runs.
+- Intake agent (Claude): turns the sentence into {intent, typology, zone, move_in, budget}; fills missing fields
+  from the user's profile in Postgres.
+- Market analyst agent (Claude + tools compute_window, rank_neighbourhoods, get_seasonality). Typical query:
+    WITH monthly AS (SELECT toYear(date_mutation) y, toMonth(date_mutation) m, count() n, median(prix_m2) p
+                     FROM dvf_sales WHERE code_commune = '75111' AND typology = 't2' GROUP BY y, m),
+         yearly  AS (SELECT y, avg(n) n_avg, median(p) p_med FROM monthly GROUP BY y HAVING count() = 12)
+    SELECT m, sum(n), avg(n / n_avg) AS volume_index, avg(p / p_med) AS price_index
+    FROM monthly JOIN yearly USING y GROUP BY m ORDER BY m
+  Each year is normalised by its own average, so a rising or falling market is not mistaken for seasonality.
+  Ranking joins rent_indicators (latest vintage), rent_caps_paris (cap for the room count) and dvf_sales (most
+  active months per arrondissement, median price/m2 over the last 12 months).
+- Events agent (Claude + get_upcoming_events): SELECT ... FROM events WHERE end_date >= today AND start_date <=
+  move_in AND scope IN ('FR','75'); keeps the 3-5 events that change competition or supply.
+- Advisor agent (Claude): writes the advice from the tool outputs only. A grounding check then extracts every
+  number from the text and looks it up in the tool outputs; the UI shows "N/N numbers found in the data".
+
+4. MEMORY
+---------
+With a handle, the second run reads the last searches and the profile from Postgres: "et pour un T2 ?" reuses
+the budget, zone and move-in date of the first question, and the advisor refers to the earlier search.
+"Previens-moi" stores an alert (window start/end) in the user's profile. Feedback is stored per recommendation.
+
+5. FRESHNESS
+------------
+- DVF is updated every six months: data/ingest.py reloads ClickHouse in about one minute
+  (1.4 M rows), and data/convert_raw_dvf.py handles the raw DGFiP format so a new half-year can be added the
+  day it is published (we added H1 2026 today).
+- The events table is upserted by data/seed_events.py; dates flagged "a confirmer" are shown as such.
+
+6. EVIDENCE (benchmarks/)
+-------------------------
+- Out-of-sample backtest (leave-one-year-out, 2021-2025, 20 arrondissements x 3 typologies = 299 cases):
+  for renting, the month Timing picks beats a random month of the realistic search window in 92.3 % of cases
+  (+25.3 % volume of dwellings changing hands). Against "search in September", volume is similar (50.5 %
+  of cases) because the rule avoids the student rush on purpose. For buying, the month gives no reliable price
+  advantage (<1 %), and we say so.
+- Claude alone vs Timing on 20 questions, same model: answers where every number is found in the data:
+  0/20 for Claude alone vs 17/20 for Timing (numbers found: 71.0 % vs 98.8 %). Cost: 14.0 s vs 6.8 s median
+  latency, ~13.6k vs ~0.8k tokens, 5 LLM calls and 4.2 data queries per answer.
+
+7. LIMITS, AND V2
+-----------------
+- DVF records signed sales, not rental listings: monthly volume is a proxy for turnover, not a listing count.
+- Monthly rent = rent per m2 x a typical surface (22 / 40 / 62 m2), shown on screen.
+- V2: a real-time listings feed through Aiven for Apache Kafka into ClickHouse, which would replace the proxy
+  with listing counts and asking rents per week, and send alerts when the window opens.
