@@ -53,6 +53,12 @@ def destinations():
     return list_destinations()
 
 
+@app.get("/api/airports")
+def airports(q: str = ""):
+    from app.agents.fares import search_airports
+    return search_airports(q)
+
+
 @app.get("/api/air-destinations")
 def air_destinations():
     return list_air_destinations()

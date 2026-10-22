@@ -227,7 +227,21 @@ TOOL_SCHEMAS = {
                          "required": ["start", "end"]}},
 }
 
+TOOL_SCHEMAS["get_real_fares"] = {
+    "description": "Vrais billets d'avion Paris → aéroport (code IATA) à une date : prix Google Flights, compagnies, "
+                   "verdict bas/normal/élevé, fourchette habituelle et évolution du prix sur ~60 jours.",
+    "input_schema": {"type": "object", "properties": {"destination_iata": {"type": "string"},
+                                                      "travel_date": {"type": "string"}},
+                     "required": ["destination_iata", "travel_date"]}}
+
+
+def _real_fares(a):
+    from app.agents.fares import get_real_fares
+    return get_real_fares(a["destination_iata"], a["travel_date"])
+
+
 TOOL_FUNCS = {
+    "get_real_fares": _real_fares,
     "compute_travel_window": lambda a: compute_travel_window(a["mode"], a["destination"], a.get("travel_month"), a["today"]),
     "get_route": lambda a: get_route(a["destination"]),
     "get_price_seasonality": lambda a: get_price_seasonality(a["mode"]),

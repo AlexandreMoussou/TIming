@@ -11,6 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
+from app.agents.fares import airport, fare_date
 from app.agents.tools import MONTHS_FR, TOOL_FUNCS, TOOL_SCHEMAS, list_air_destinations
 from app.config import ANTHROPIC_API_KEY
 from app.db import postgres as pg
@@ -102,22 +103,39 @@ def agent_loop(run, agent, system, user, tools, max_turns=3, max_tokens=700):
 
 
 def analyst(run, p, today):
-    window = run.call_tool("analyst", "compute_travel_window", {"mode": p["mode"], "destination": p["destination"],
+    series = p.get("series_destination", p["destination"])
+    window = run.call_tool("analyst", "compute_travel_window", {"mode": p["mode"], "destination": series,
                                                                "travel_month": p.get("travel_month"), "today": today})
+    if p.get("destination_label"):
+        window["destination_name"] = p["destination_label"]
     route = run.call_tool("analyst", "get_route", {"destination": p["destination"]}) if p["mode"] == "train" else None
+    fares = []
+    if p.get("iata"):  # vrais billets : le mois visé (ou le mois prochain) et le meilleur mois
+        b = window["best"]
+        ref = window.get("target") or window["timeline"][1 if len(window["timeline"]) > 1 else 0]
+        months = [(ref["year"], ref["month"])]
+        if (b["year"], b["month"]) != (ref["year"], ref["month"]):
+            months.append((b["year"], b["month"]))
+        for y, m in months:
+            f = run.call_tool("analyst", "get_real_fares", {"destination_iata": p["iata"],
+                                                            "travel_date": fare_date(y, m, today)})
+            fares.append({**f, "month_label": f"{MONTHS_FR[m - 1]} {y}", "is_best": (y, m) == (b["year"], b["month"])})
     note = None
     if llm():
         note = agent_loop(
             run, "analyst",
             "Tu es l'analyst agent de Départ (billets de train et d'avion depuis Paris). Tu as la frise des mois et, "
-            "en train, les prix SNCF et les places TGVmax. Si utile, appelle get_price_seasonality pour comparer "
-            "train et avion. Résume en 3 phrases courtes, texte brut, uniquement avec les chiffres des outils.",
+            "en train, les prix SNCF et les places TGVmax ; en avion vers un aéroport précis, de vrais billets Google "
+            "Flights. Si utile, appelle get_price_seasonality pour comparer train et avion. Résume en 3 phrases courtes, "
+            "texte brut, uniquement avec les chiffres des outils.",
             json.dumps({"params": p, "best": window["best"], "target": window.get("target"),
                         "timeline": [{k: t[k] for k in ("label", "status", "reason")} for t in window["timeline"]],
+                        "real_fares": [{k: f.get(k) for k in ("month_label", "date", "lowest_price", "price_level",
+                                                              "typical_range")} for f in fares],
                         "route": route and {"fares": route["fares"],
                                             "tgvmax_free_trains_30d": sum(d["free"] for d in route["tgvmax_next_days"])}},
                        default=str, ensure_ascii=False), ["get_price_seasonality"])
-    return {"window": window, "route": route, "note": note}
+    return {"window": window, "route": route, "fares": fares, "note": note}
 
 
 def calendar_agent(run, p, today):
@@ -146,6 +164,16 @@ def advisor_template(p, a):
     if w.get("target") and w["target"] is not b:
         s += (f". En {w['target']['label']}, les billets sont à {w['target']['price_vs_year_pct']:+.0f} % : "
               f"partir en {b['label']} te fait gagner environ {w['saving_vs_target_pts']:.0f} points de prix")
+    real = [f for f in a.get("fares", []) if f.get("available") and f.get("lowest_price")]
+    if real:
+        lv = {"low": "un prix bas", "typical": "un prix normal", "high": "un prix élevé"}
+        s += ". Vrais billets aujourd'hui : " + ", ".join(
+            f"dès {f['lowest_price']} € le {f['date'][8:10]}/{f['date'][5:7]}"
+            + (f" ({lv[f['price_level']]} selon Google)" if f.get("price_level") in lv else "") for f in real)
+        tr = real[0].get("trend")
+        if tr and abs(tr["change_pct"]) >= 1:
+            s += (f". Sur les {tr['days']} derniers jours, ce billet est passé de {tr['first']} € à {tr['last']} € "
+                  f"({tr['change_pct']:+.0f} %)")
     if a.get("route") and a["route"]["fares"]:
         cheapest = min(a["route"]["fares"], key=lambda f: f["price_min"])
         s += f". Billets dès {cheapest['price_min']:.0f} € en {cheapest['carrier']}"
@@ -162,13 +190,20 @@ def advisor_llm(run, p, a, c, memory):
                "timeline": [{k: x[k] for k in ("label", "status", "reason")} for x in a["window"]["timeline"]],
                "route": a["route"] and {"fares": a["route"]["fares"],
                                         "tgvmax_free_trains_30d": sum(d["free"] for d in a["route"]["tgvmax_next_days"])},
+               "real_fares": [{**{k: f.get(k) for k in ("month_label", "date", "lowest_price", "price_level",
+                                                         "typical_range")},
+                               "trend": f.get("trend") and {k: f["trend"][k] for k in ("days", "first", "last", "change_pct")},
+                               "cheapest_flights": [{k: x[k] for k in ("airline", "price", "stops")}
+                                                    for x in f.get("flights", [])[:3]]}
+                              for f in a.get("fares", []) if f.get("available")],
                "analyst_note": a["note"], "calendar_note": c["note"], "memory": memory}
     msg = run.create(
         model=MODEL, max_tokens=1200,
         system=("Tu es l'advisor agent de Départ, qui dit quand partir pour payer moins cher en train ou en avion "
                 "depuis Paris. Français, tutoiement, 3 à 4 phrases courtes et simples : le meilleur mois et pourquoi, "
-                "ce que ça fait gagner par rapport au mois visé s'il y en a un, les prix SNCF en train, les périodes "
-                "à éviter. N'utilise QUE les chiffres fournis, arrondis à l'unité. Pas de jargon (ni 'indice', ni "
+                "ce que ça fait gagner par rapport au mois visé s'il y en a un, les vrais billets en avion (prix du jour, "
+                "verdict de Google, et si le prix monte ou descend sur les derniers jours), les prix SNCF en train, les "
+                "périodes à éviter. N'utilise QUE les chiffres fournis, arrondis à l'unité. Pas de jargon (ni 'indice', ni "
                 "'HICP', ni 'score'), pas de markdown. Les écarts de prix sont des moyennes historiques, pas une "
                 "promesse : dis-le en quelques mots. Si une mémoire est fournie, fais-y référence."),
         messages=[{"role": "user", "content": json.dumps(payload, default=str, ensure_ascii=False)}])
@@ -203,7 +238,7 @@ def grounding(text, outputs):
 
 
 def describe(p):
-    where = p["destination"].title() if p["mode"] == "train" else p["destination"]
+    where = p["destination"].title() if p["mode"] == "train" else p.get("destination_label") or p["destination"]
     when = (f"{MONTHS_FR[int(p['travel_month'][5:7]) - 1]} {p['travel_month'][:4]}" if p.get("travel_month")
             else "dates flexibles")
     return f"{p['mode']} vers {where}, {when}"
@@ -225,7 +260,12 @@ def recommend(params, handle=None, today=None):
         p["travel_month"] = None
     p.pop("flexible", None)
     air_codes = {d["code"] for d in list_air_destinations()}
-    if p["mode"] == "avion" and p["destination"] not in ("national", "international", *air_codes):
+    ap = airport(p["destination"]) if p["mode"] == "avion" and len(p["destination"]) == 3 else None
+    if ap:  # aéroport du monde (IATA) : vrais billets + saisonnalité de la liaison si Eurostat la couvre
+        p["iata"] = ap["iata"]
+        p["destination_label"] = f"{ap['city'] or ap['name']} ({ap['iata']})"
+        p["series_destination"] = ap["icao"] if ap["icao"] in air_codes else ("national" if ap["cc"] == "FR" else "international")
+    elif p["mode"] == "avion" and p["destination"] not in ("national", "international", *air_codes):
         p["destination"] = "national"
     if p["mode"] == "train" and p["destination"] in (*air_codes, "national", "international"):
         p["destination"] = "LYON PART DIEU"
@@ -243,7 +283,7 @@ def recommend(params, handle=None, today=None):
     g = grounding(advice, run.tool_outputs)
     run.log("advisor", "final", "grounding_check", None, g)
     result = {"run_id": run.id, "mode": mode, "params": p, "advice": advice, "grounding": g, "memory": memory,
-              "window": a["window"], "route": a["route"], "calendar": c["periods"],
+              "window": a["window"], "route": a["route"], "fares": a["fares"], "calendar": c["periods"],
               "notes": {"analyst": a["note"], "calendar": c["note"]},
               "usage": {"llm_calls": run.llm_calls, **run.tokens, "tool_calls": len(run.tool_outputs)},
               "latency_ms": int((time.time() - t0) * 1000), "trace": run.trace}

@@ -5,3 +5,4 @@ psycopg[binary]
 redis
 anthropic
 python-dotenv
+requests

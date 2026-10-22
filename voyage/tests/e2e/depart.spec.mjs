@@ -42,7 +42,7 @@ test('train vers Lyon en juillet : meilleur mois, trajet, frise, trace', async (
 test("avion flexible vers l'étranger : 12 mois, pas de carte trajet", async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('mode-avion').click();
-  await page.getByTestId('air-destination').selectOption('international');
+  await page.getByTestId('air-search').fill('');
   await page.getByTestId('when-flex').click();
   await expect(page.getByTestId('months')).toBeHidden();
   await page.getByTestId('go').click();
@@ -51,17 +51,22 @@ test("avion flexible vers l'étranger : 12 mois, pas de carte trajet", async ({ 
   await expect(page.getByTestId('route')).toBeHidden();
 });
 
-test('vol Paris → New York : affluence propre à la liaison', async ({ page }) => {
+test('vol Paris → New York : vrais billets Google Flights et tendance', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('mode-avion').click();
-  await expect(page.getByTestId('air-destination').locator('option')).not.toHaveCount(0);
-  await page.getByTestId('air-destination').selectOption('KJFK');
+  await page.getByTestId('air-pop-JFK').click();
   await page.getByTestId('go').click();
-  await expect(page.locator('#r-eyebrow')).toHaveText('Vol Paris → New York');
-  await expect(page.locator('#rail-sub')).toContainText('liaison Paris → New York');
+  await expect(page.locator('#r-eyebrow')).toContainText('New York (JFK)', { timeout: 90000 });
+  await expect(page.getByTestId('real-fares')).toBeVisible();
+  await expect(page.getByTestId('ticket').first()).toContainText('€');
   const g = await page.getByTestId('grounding').textContent();
   const [ok, total] = g.match(/(\d+)\/(\d+)/).slice(1).map(Number);
   expect(ok).toBe(total);
+});
+
+test("recherche d'aéroport dans le monde entier", async ({ request }) => {
+  const r = await (await request.get('/api/airports?q=bangkok')).json();
+  expect(r.map((a) => a.iata)).toContain('BKK');
 });
 
 test("train vers Genève : destinations à l'étranger proposées", async ({ page }) => {

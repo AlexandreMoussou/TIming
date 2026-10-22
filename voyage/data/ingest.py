@@ -32,6 +32,8 @@ CH_SCHEMA = [
     """CREATE TABLE IF NOT EXISTS vg_air_route (dest_icao LowCardinality(String), dest_name String,
        country LowCardinality(String), month Date, passengers Float64)
        ENGINE = MergeTree ORDER BY (dest_icao, month)""",
+    """CREATE TABLE IF NOT EXISTS vg_airports (iata String, icao String, name String, city String, country String,
+       cc LowCardinality(String), large UInt8) ENGINE = MergeTree ORDER BY iata""",
     """CREATE TABLE IF NOT EXISTS vg_tgvmax (day Date, train_no String, axe LowCardinality(String),
        origin LowCardinality(String), destination LowCardinality(String), dep_time String, arr_time String,
        available UInt8) ENGINE = MergeTree ORDER BY (origin, destination, day)""",
@@ -78,6 +80,14 @@ def eurostat_rows(path, key_dim):
     return out
 
 
+def ingest_airports(c):
+    """Aéroports du monde avec vols réguliers et code IATA (OurAirports, domaine public)."""
+    ap = json.load(open(RAW / "airports_world.json", encoding="utf-8"))
+    rows = [(a["iata"], a["icao"], a["name"], a["city"], a["country"], a["cc"], int(a["large"])) for a in ap]
+    c.insert("vg_airports", rows, column_names=["iata", "icao", "name", "city", "country", "cc", "large"])
+    print(f"OurAirports : {len(rows)} aéroports")
+
+
 def ingest_air_routes(c):
     """Passagers par liaison Paris (Roissy + Orly) → destination, Eurostat avia_par_fr (pairs_sel.json)."""
     names = json.load(open(RAW / "pairs_sel.json", encoding="utf-8"))["names"]
@@ -93,7 +103,7 @@ def ingest_air_routes(c):
 
 def main():
     c = client()
-    for t in ("vg_price_index", "vg_air_pax", "vg_rail_regularity", "vg_rail_fares", "vg_tgvmax", "vg_air_route"):
+    for t in ("vg_price_index", "vg_air_pax", "vg_rail_regularity", "vg_rail_fares", "vg_tgvmax", "vg_air_route", "vg_airports"):
         c.command(f"DROP TABLE IF EXISTS {t}")
     for stmt in CH_SCHEMA:
         c.command(stmt)
@@ -108,6 +118,7 @@ def main():
     print(f"Eurostat passagers aériens : {len(rows)} points")
 
     ingest_air_routes(c)
+    ingest_airports(c)
 
     reg = json.load(open(RAW / "regularite-mensuelle-tgv-aqst.json", encoding="utf-8"))
     rows = [(month(r["date"]), r["service"] or "", r["gare_depart"], r["gare_arrivee"], r["duree_moyenne"] or 0,

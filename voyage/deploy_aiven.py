@@ -17,7 +17,7 @@ repo, branch = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else "main")
 SERVICE, PROJECT, CLOUD, PLAN = "voyage-app", "timing", "google-europe-west1", "startup-20-512"
 
 secrets = [{"key": k, "value": env[k], "kind": "secret"}
-           for k in ("AIVEN_PG_URI", "AIVEN_CH_URI", "AIVEN_VALKEY_URI", "ANTHROPIC_API_KEY") if env.get(k)]
+           for k in ("AIVEN_PG_URI", "AIVEN_CH_URI", "AIVEN_VALKEY_URI", "ANTHROPIC_API_KEY", "SERPAPI_KEY") if env.get(k)]
 config = {
     "environment_variables": secrets + [{"key": "PORT", "value": "8080", "kind": "variable"}],
     "ports": [{"name": "web", "port": 8080, "protocol": "HTTP"}],
